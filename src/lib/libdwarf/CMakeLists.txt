@@ -91,50 +91,34 @@ endif()
 
 include(GNUInstallDirs)
 	
-list(LENGTH DWARF_TARGETS targetCount)
-math(EXPR targetCount "${targetCount} - 1")
-list(APPEND DWARF_LIBS ${LIBELF_LIBRARIES})
-if (DW_FZLIB)
-    list(APPEND DWARF_LIBS z)
-endif()
-if (DW_FZSTD)
-    list(APPEND DWARF_LIBS zstd)
-endif()
-foreach(i RANGE ${targetCount})
-	list(GET DWARF_TARGETS ${i} target)
-	list(GET DWARF_TYPES ${i} type)
-	add_library(${target} ${type} ${SOURCES} ${HEADERS}
-            ${GENNAMES_OUTPUT} ${CONFIGURATION_FILES})
 
-    add_library(libdwarf::${target} ALIAS ${target})
-    
-	set_folder(${target} src/lib/libdwarf)
-    target_compile_options(${target} PRIVATE ${COMPILER_FLAGS}
-            ${DW_FWALL})
-	msvc_posix(${target})
-    
-    target_compile_definitions(${target} PUBLIC ${DEFS})
-    
-  target_include_directories(
-    ${target}
-    PUBLIC
+if(BUILD_SHARED)
+    add_library(dwarf SHARED ${SOURCES} ${HEADERS} ${CONFIGURATION_FILES})
+    add_library(libdwarf::dwarf-shared ALIAS dwarf)
+else()
+    add_library(dwarf STATIC ${SOURCES} ${HEADERS} ${CONFIGURATION_FILES})
+    add_library(libdwarf::dwarf-static ALIAS dwarf)
+endif()
+set_folder(dwarf src/lib/libdwarf)
+target_compile_options(dwarf PRIVATE ${COMPILER_FLAGS} ${DW_FWALL})
+msvc_posix(dwarf)
+target_compile_definitions(dwarf PUBLIC ${DEFS})
+target_include_directories(dwarf PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
+if(ZLIB_FOUND AND ZSTD_FOUND)
+  target_link_libraries(dwarf PRIVATE  ZLIB::ZLIB ZSTD::ZSTD ) 
+endif()
 
-	target_link_libraries(${target} PUBLIC  ${DW_FZLIB} ${DW_FZSTD} ) 
-	
-	set_target_properties(${target} PROPERTIES OUTPUT_NAME dwarf)
+set(SUFFIX $<$<EQUAL:${CMAKE_SIZEOF_VOID_P},8>:64>)
+set(LIBDIR lib${SUFFIX})
+set(BINDIR bin${SUFFIX})
 
-	set(SUFFIX $<$<EQUAL:${CMAKE_SIZEOF_VOID_P},8>:64>)
-	set(LIBDIR lib${SUFFIX})
-	set(BINDIR bin${SUFFIX})
-
-	install(TARGETS ${target}
-		RUNTIME DESTINATION ${BINDIR}		
-		LIBRARY DESTINATION ${LIBDIR}
-		ARCHIVE DESTINATION ${LIBDIR})
-endforeach()
+install(TARGETS dwarf
+	RUNTIME DESTINATION ${BINDIR}		
+	LIBRARY DESTINATION ${LIBDIR}
+	ARCHIVE DESTINATION ${LIBDIR})
 
 configure_file(libdwarf.pc.cmake libdwarf.pc @ONLY )
 
@@ -142,8 +126,7 @@ configure_file(libdwarf.pc.cmake libdwarf.pc @ONLY )
 # another CMakeLists.txt  to make install work properly
 # for cmake before cmake 3.13. This also works
 # for newer cmake.
-add_custom_target(dd DEPENDS ${DWARF_TARGETS} dwarfdump)
-install(TARGETS ${DWARF_TARGETS} EXPORT libdwarfTargets
+install(TARGETS dwarf EXPORT libdwarfTargets
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
     INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")

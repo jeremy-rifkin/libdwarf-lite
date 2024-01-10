@@ -193,14 +193,14 @@ static int macho_get_section_info (void *obj,
         struct generic_macho_section *sp = 0;
 
         sp = macho->mo_dwarf_sections + section_index;
-        return_section->as_name  = sp->dwarfsectname;
-        return_section->as_type  = 0;
-        return_section->as_flags = 0;
-        return_section->as_addr  = 0;
-        return_section->as_offset = 0;
-        return_section->as_size  = sp->size;
-        return_section->as_link  = 0;
-        return_section->as_info  = 0;
+        return_section->as_name   = sp->dwarfsectname;
+        return_section->as_type   = 0;
+        return_section->as_flags  = sp->flags;
+        return_section->as_addr   = sp->addr;
+        return_section->as_offset = sp->offset;
+        return_section->as_size   = sp->size;
+        return_section->as_link   = 0;
+        return_section->as_info   = 0;
         return_section->as_addralign = 0;
         return_section->as_entrysize = 0;
         return DW_DLV_OK;
@@ -342,7 +342,8 @@ load_macho_header32(dwarf_macho_object_access_internals_t *mfp,
         *errcode = DW_DLE_MACHO_CORRUPT_HEADER;
         return DW_DLV_ERROR;
     }
-
+    mfp->mo_machine = mfp->mo_header.cputype;
+    mfp->mo_flags = mfp->mo_header.flags;
     mfp->mo_command_start_offset = sizeof(mh32);
     return DW_DLV_OK;
 }
@@ -383,6 +384,8 @@ load_macho_header64(dwarf_macho_object_access_internals_t *mfp,
         *errcode = DW_DLE_MACHO_CORRUPT_HEADER;
         return DW_DLV_ERROR;
     }
+    mfp->mo_machine = mfp->mo_header.cputype;
+    mfp->mo_flags = mfp->mo_header.flags;
     mfp->mo_command_start_offset = sizeof(mh64);
     return DW_DLV_OK;
 }
@@ -887,6 +890,8 @@ _dwarf_macho_setup(int fd,
     }
     intfc = binary_interface->ai_object;
     intfc->mo_path = strdup(true_path);
+    (*dbg)->de_obj_flags = intfc->mo_flags;
+    (*dbg)->de_obj_machine = intfc->mo_machine;
     (*dbg)->de_universalbinary_index = universalnumber;
     (*dbg)->de_universalbinary_count = universalbinary_count;
     return res;
@@ -1068,6 +1073,10 @@ _dwarf_macho_object_access_internals_init(
                 sp->dwarfsectname = SectionNames[j].ms_dwname;
                 break;
             }
+        }
+        if (sp->dwarfsectname[0] == 0) {
+            /* if not matched, keep the apple section name */
+            sp->dwarfsectname = sp->sectname;
         }
     }
     return DW_DLV_OK;
