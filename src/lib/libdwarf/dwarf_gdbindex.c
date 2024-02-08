@@ -63,7 +63,7 @@ Index-Section-Format.html#Index-Section-Format
 #if WORDS_BIGENDIAN   /* meaning on this host */
 #define READ_GDBINDEX(dest,desttype, source, length) \
     do {                                             \
-        BIGGEST_UINT _ltmp = 0;                      \
+        desttype _ltmp = 0;                      \
         _dwarf_memcpy_swap_bytes((((char *)(&_ltmp)) \
             + sizeof(_ltmp) - (length)),             \
             (source), (length)) ;                    \
@@ -72,7 +72,7 @@ Index-Section-Format.html#Index-Section-Format
 #else /* little-endian on this host */
 #define READ_GDBINDEX(dest,desttype, source, length) \
     do {                                             \
-        BIGGEST_UINT _ltmp = 0;                      \
+        desttype _ltmp = 0;                      \
         memcpy(((char *)(&_ltmp)) ,                  \
             (source), (length)) ;                    \
         (dest) = (desttype)_ltmp;                    \
@@ -194,6 +194,16 @@ dwarf_gdbindex_header(Dwarf_Debug dbg,
         }
     }
     data = dbg->de_debug_gdbindex.dss_data;
+    if (!data) {
+        /* Should be impossible, dwarf_load_section() would
+           return DW_DLV_ERROR if dss_data could not be
+           set non-null */
+        _dwarf_error_string(dbg, error, DW_DLE_ERRONEOUS_GDB_INDEX_SECTION,
+            "DW_DLE_ERRONEOUS_GDB_INDEX_SECTION: "
+            "We have non-zero (section) dss_size but "
+            "null dss_data pointer");
+        return DW_DLV_ERROR;
+    }
     startdata = data;
 
     if (dbg->de_debug_gdbindex.dss_size < (DWARF_32BIT_SIZE*6)) {

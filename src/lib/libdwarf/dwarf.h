@@ -154,9 +154,19 @@ extern "C" {
 #define DW_TAG_call_site_parameter      0x49  /* DWARF5 */
 #define DW_TAG_skeleton_unit            0x4a  /* DWARF5 */
 #define DW_TAG_immutable_type           0x4b  /* DWARF5 */
-#define DW_TAG_lo_user                  0x4080
 
+/* TI = Texas Instruments, for DWARF in COFF */
+/* https://www.ti.com/lit/an/spraab5/spraab5.pdf?ts=1705994928599 */
+ 
+#define DW_TAG_lo_user                  0x4080 /* TI */
+#define DW_TAG_TI_far_type              0x4080 /* TI */
 #define DW_TAG_MIPS_loop                0x4081
+#define DW_TAG_TI_near_type             0x4081 /* TI */
+#define DW_TAG_TI_assign_register       0x4082 /* TI */
+#define DW_TAG_TI_ioport_type           0x4083 /* TI */
+#define DW_TAG_TI_restrict_type         0x4084 /* TI */
+#define DW_TAG_TI_onchip_type           0x4085 /* TI */
+
 
 /*  HP extensions: ftp://ftp.hp.com/pub/lang/tools/\
     WDB/wdb-4.0.tar.gz  */
@@ -448,14 +458,15 @@ extern "C" {
 /*  In extensions, we attempt to include the vendor extension
     in the name even when the vendor leaves it out. */
 
-/* HP extensions. */
 #define DW_AT_HP_block_index                    0x2000  /* HP */
+#define DW_AT_TI_veneer                         0x2000  /* TI */
 
 /*  0x2000 Follows extension so dwarfdump prints the
     most-likely-useful name. */
 #define DW_AT_lo_user                           0x2000
 
 #define DW_AT_MIPS_fde                          0x2001 /* MIPS/SGI */
+#define DW_AT_TI_symbol_name                    0x2001 /* TI */
 #define DW_AT_MIPS_loop_begin                   0x2002 /* MIPS/SGI */
 #define DW_AT_MIPS_tail_loop_begin              0x2003 /* MIPS/SGI */
 #define DW_AT_MIPS_epilog_begin                 0x2004 /* MIPS/SGI */
@@ -466,12 +477,16 @@ extern "C" {
 #define DW_AT_MIPS_abstract_name                0x2009 /* MIPS/SGI */
 #define DW_AT_MIPS_clone_origin                 0x200a /* MIPS/SGI */
 #define DW_AT_MIPS_has_inlines                  0x200b /* MIPS/SGI */
+#define DW_AT_TI_version                        0x200b /* TI */
 #define DW_AT_MIPS_stride_byte                  0x200c /* MIPS/SGI */
+#define DW_AT_TI_asm                            0x200c /* TI */
 #define DW_AT_MIPS_stride_elem                  0x200d /* MIPS/SGI */
 #define DW_AT_MIPS_ptr_dopetype                 0x200e /* MIPS/SGI */
+#define DW_AT_TI_skeletal                       0x200e /* TI */
 #define DW_AT_MIPS_allocatable_dopetype         0x200f /* MIPS/SGI */
 #define DW_AT_MIPS_assumed_shape_dopetype       0x2010 /* MIPS/SGI */
 #define DW_AT_MIPS_assumed_size                 0x2011 /* MIPS/SGI */
+#define DW_AT_TI_interrupt                      0x2011 /* TI */
 
 /* HP extensions. */
 #define DW_AT_HP_unmodifiable      0x2001 /* conflict: MIPS */
@@ -1003,6 +1018,9 @@ most-likely-useful name. */
 #define DW_IDX_GNU_internal         0x2000
 #define DW_IDX_lo_user              0x2000   /* DWARF5 */
 #define DW_IDX_GNU_external         0x2001
+#define DW_IDX_GNU_main             0x2002
+#define DW_IDX_GNU_language         0x2003
+#define DW_IDX_GNU_linkage_name     0x2004
 #define DW_IDX_hi_user              0x3fff   /* DWARF5 */
 
 /*  These with not-quite-the-same-names were used in DWARF4
@@ -1173,14 +1191,20 @@ most-likely-useful name. */
 #define DW_LANG_Assembly                0x0031 /* DWARF6 */
 #define DW_LANG_C_sharp                 0x0032 /* DWARF6 */
 #define DW_LANG_Mojo                    0x0033 /* DWARF6 */
+#define DW_LANG_GLSL 	                0x0034 /* DWARF6 */
+#define DW_LANG_GLSL_ES 	            0x0035 /* DWARF6 */
+#define DW_LANG_HLSL 	                0x0036 /* DWARF6 */
+#define DW_LANG_OpenCL_CPP 	            0x0037 /* DWARF6 */
+#define DW_LANG_CPP_for_OpenCL 	        0x0038 /* DWARF6 */
+#define DW_LANG_SYCL 	                0x0039 /* DWARF6 */
+#define DW_LANG_Ruby 	                0x0040 /* DWARF6 */
 
 #define DW_LANG_lo_user                 0x8000
 #define DW_LANG_Mips_Assembler          0x8001 /* MIPS   */
 #define DW_LANG_Upc                     0x8765 /* UPC, use
                                         DW_LANG_UPC instead. */
 #define DW_LANG_GOOGLE_RenderScript     0x8e57
-/* ALTIUM extension */
-#define DW_LANG_ALTIUM_Assembler        0x9101  /* ALTIUM */
+#define DW_LANG_ALTIUM_Assembler        0x9101
 #define DW_LANG_BORLAND_Delphi          0xb000
 
 /* Sun extensions */
@@ -1381,11 +1405,13 @@ most-likely-useful name. */
 #define DW_CFA_val_offset         0x14 /* DWARF3f */
 #define DW_CFA_val_offset_sf      0x15 /* DWARF3f */
 #define DW_CFA_val_expression     0x16 /* DWARF3f */
-#define DW_CFA_lo_user     0x1c
+#define DW_CFA_lo_user            0x1c
+#define DW_CFA_TI_soffset_extended  0x1c /* TI */
 #define DW_CFA_low_user    0x1c  /* Incorrect spelling, do not use. */
 
 /* SGI/MIPS extension. */
-#define DW_CFA_MIPS_advance_loc8 0x1d   /* MIPS */
+#define DW_CFA_MIPS_advance_loc8  0x1d   /* MIPS */
+#define DW_CFA_TI_def_cfa_soffset 0x1d   /* TI */
 
 /* GNU extensions. */
 #define DW_CFA_GNU_window_save               0x2d /* GNU */
@@ -1577,6 +1603,12 @@ most-likely-useful name. */
 #define DW_CHILDREN_yes              0x01
 
 #define DW_ADDR_none            0
+#define DW_ADDR_TI_PTR8         0x0008   /* TI */
+#define DW_ADDR_TI_PTR16         0x0010   /* TI */
+#define DW_ADDR_TI_PTR22         0x0016   /* TI */
+#define DW_ADDR_TI_PTR23         0x0017   /* TI */
+#define DW_ADDR_TI_PTR24         0x0018   /* TI */
+#define DW_ADDR_TI_PTR32         0x0020   /* TI */
 
 #ifdef __cplusplus
 }

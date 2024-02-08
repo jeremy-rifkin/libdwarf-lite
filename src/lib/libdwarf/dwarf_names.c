@@ -1,5 +1,5 @@
 /* Generated routines, do not edit. */
-/* Generated for source version 0.9.0 */
+/* Generated for source version 0.9.1 */
 
 /* BEGIN FILE */
 
@@ -229,8 +229,24 @@ dwarf_get_TAG_name (unsigned int val,
     case DW_TAG_lo_user:
         *s_out = "DW_TAG_lo_user";
         return DW_DLV_OK;
+    /*  Skipping alternate spelling of value
+        0x4080. DW_TAG_TI_far_type */
     case DW_TAG_MIPS_loop:
         *s_out = "DW_TAG_MIPS_loop";
+        return DW_DLV_OK;
+    /*  Skipping alternate spelling of value
+        0x4081. DW_TAG_TI_near_type */
+    case DW_TAG_TI_assign_register:
+        *s_out = "DW_TAG_TI_assign_register";
+        return DW_DLV_OK;
+    case DW_TAG_TI_ioport_type:
+        *s_out = "DW_TAG_TI_ioport_type";
+        return DW_DLV_OK;
+    case DW_TAG_TI_restrict_type:
+        *s_out = "DW_TAG_TI_restrict_type";
+        return DW_DLV_OK;
+    case DW_TAG_TI_onchip_type:
+        *s_out = "DW_TAG_TI_onchip_type";
         return DW_DLV_OK;
     case DW_TAG_HP_array_descriptor:
         *s_out = "DW_TAG_HP_array_descriptor";
@@ -941,10 +957,14 @@ dwarf_get_AT_name (unsigned int val,
         *s_out = "DW_AT_HP_block_index";
         return DW_DLV_OK;
     /*  Skipping alternate spelling of value
+        0x2000. DW_AT_TI_veneer */
+    /*  Skipping alternate spelling of value
         0x2000. DW_AT_lo_user */
     case DW_AT_MIPS_fde:
         *s_out = "DW_AT_MIPS_fde";
         return DW_DLV_OK;
+    /*  Skipping alternate spelling of value
+        0x2001. DW_AT_TI_symbol_name */
     /*  Skipping alternate spelling of value
         0x2001. DW_AT_HP_unmodifiable */
     /*  Skipping alternate spelling of value
@@ -993,15 +1013,21 @@ dwarf_get_AT_name (unsigned int val,
     case DW_AT_MIPS_has_inlines:
         *s_out = "DW_AT_MIPS_has_inlines";
         return DW_DLV_OK;
+    /*  Skipping alternate spelling of value
+        0x200b. DW_AT_TI_version */
     case DW_AT_MIPS_stride_byte:
         *s_out = "DW_AT_MIPS_stride_byte";
         return DW_DLV_OK;
+    /*  Skipping alternate spelling of value
+        0x200c. DW_AT_TI_asm */
     case DW_AT_MIPS_stride_elem:
         *s_out = "DW_AT_MIPS_stride_elem";
         return DW_DLV_OK;
     case DW_AT_MIPS_ptr_dopetype:
         *s_out = "DW_AT_MIPS_ptr_dopetype";
         return DW_DLV_OK;
+    /*  Skipping alternate spelling of value
+        0x200e. DW_AT_TI_skeletal */
     case DW_AT_MIPS_allocatable_dopetype:
         *s_out = "DW_AT_MIPS_allocatable_dopetype";
         return DW_DLV_OK;
@@ -1013,6 +1039,8 @@ dwarf_get_AT_name (unsigned int val,
     case DW_AT_MIPS_assumed_size:
         *s_out = "DW_AT_MIPS_assumed_size";
         return DW_DLV_OK;
+    /*  Skipping alternate spelling of value
+        0x2011. DW_AT_TI_interrupt */
     /*  Skipping alternate spelling of value
         0x2011. DW_AT_HP_proc_per_section */
     case DW_AT_HP_raw_data_ptr:
@@ -2300,6 +2328,15 @@ dwarf_get_IDX_name (unsigned int val,
     case DW_IDX_GNU_external:
         *s_out = "DW_IDX_GNU_external";
         return DW_DLV_OK;
+    case DW_IDX_GNU_main:
+        *s_out = "DW_IDX_GNU_main";
+        return DW_DLV_OK;
+    case DW_IDX_GNU_language:
+        *s_out = "DW_IDX_GNU_language";
+        return DW_DLV_OK;
+    case DW_IDX_GNU_linkage_name:
+        *s_out = "DW_IDX_GNU_linkage_name";
+        return DW_DLV_OK;
     case DW_IDX_hi_user:
         *s_out = "DW_IDX_hi_user";
         return DW_DLV_OK;
@@ -2814,6 +2851,27 @@ dwarf_get_LANG_name (unsigned int val,
         return DW_DLV_OK;
     case DW_LANG_Mojo:
         *s_out = "DW_LANG_Mojo";
+        return DW_DLV_OK;
+    case DW_LANG_GLSL:
+        *s_out = "DW_LANG_GLSL";
+        return DW_DLV_OK;
+    case DW_LANG_GLSL_ES:
+        *s_out = "DW_LANG_GLSL_ES";
+        return DW_DLV_OK;
+    case DW_LANG_HLSL:
+        *s_out = "DW_LANG_HLSL";
+        return DW_DLV_OK;
+    case DW_LANG_OpenCL_CPP:
+        *s_out = "DW_LANG_OpenCL_CPP";
+        return DW_DLV_OK;
+    case DW_LANG_CPP_for_OpenCL:
+        *s_out = "DW_LANG_CPP_for_OpenCL";
+        return DW_DLV_OK;
+    case DW_LANG_SYCL:
+        *s_out = "DW_LANG_SYCL";
+        return DW_DLV_OK;
+    case DW_LANG_Ruby:
+        *s_out = "DW_LANG_Ruby";
         return DW_DLV_OK;
     case DW_LANG_lo_user:
         *s_out = "DW_LANG_lo_user";
@@ -3366,10 +3424,14 @@ dwarf_get_CFA_name (unsigned int val,
         *s_out = "DW_CFA_lo_user";
         return DW_DLV_OK;
     /*  Skipping alternate spelling of value
+        0x1c. DW_CFA_TI_soffset_extended */
+    /*  Skipping alternate spelling of value
         0x1c. DW_CFA_low_user */
     case DW_CFA_MIPS_advance_loc8:
         *s_out = "DW_CFA_MIPS_advance_loc8";
         return DW_DLV_OK;
+    /*  Skipping alternate spelling of value
+        0x1d. DW_CFA_TI_def_cfa_soffset */
     case DW_CFA_GNU_window_save:
         *s_out = "DW_CFA_GNU_window_save";
         return DW_DLV_OK;
@@ -3825,6 +3887,24 @@ dwarf_get_ADDR_name (unsigned int val,
     switch (val) {
     case DW_ADDR_none:
         *s_out = "DW_ADDR_none";
+        return DW_DLV_OK;
+    case DW_ADDR_TI_PTR8:
+        *s_out = "DW_ADDR_TI_PTR8";
+        return DW_DLV_OK;
+    case DW_ADDR_TI_PTR16:
+        *s_out = "DW_ADDR_TI_PTR16";
+        return DW_DLV_OK;
+    case DW_ADDR_TI_PTR22:
+        *s_out = "DW_ADDR_TI_PTR22";
+        return DW_DLV_OK;
+    case DW_ADDR_TI_PTR23:
+        *s_out = "DW_ADDR_TI_PTR23";
+        return DW_DLV_OK;
+    case DW_ADDR_TI_PTR24:
+        *s_out = "DW_ADDR_TI_PTR24";
+        return DW_DLV_OK;
+    case DW_ADDR_TI_PTR32:
+        *s_out = "DW_ADDR_TI_PTR32";
         return DW_DLV_OK;
     default: break;
     }

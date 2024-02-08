@@ -99,10 +99,10 @@ extern "C" {
 */
 
 /* Semantic Version identity for this libdwarf.h */
-#define DW_LIBDWARF_VERSION "0.9.0"
+#define DW_LIBDWARF_VERSION "0.9.2"
 #define DW_LIBDWARF_VERSION_MAJOR 0
 #define DW_LIBDWARF_VERSION_MINOR 9
-#define DW_LIBDWARF_VERSION_MICRO 0
+#define DW_LIBDWARF_VERSION_MICRO 2
 
 #define DW_PATHSOURCE_unspecified 0
 #define DW_PATHSOURCE_basic     1
@@ -2335,10 +2335,13 @@ DW_API int dwarf_diename(Dwarf_Die dw_die,
 
 /*! @brief Return the DIE abbrev code
 
-    The Abbrev code for a DIE is an integer assigned
-    by the compiler within a particular CU.
+    The Abbrev code for a DIE is a non-negative
+    integer assigned by the compiler within a particular CU.
     For .debug_names abbreviations the
-    situation is different.
+    situation is conceptually similar. The code values
+    are arbitrary but compilers are motivated to make
+    them small so the object size is as small as
+    possible.
 
     Returns the  abbrev code of the die. Cannot fail.
 
@@ -2347,7 +2350,7 @@ DW_API int dwarf_diename(Dwarf_Die dw_die,
     @return
     The abbrev code. of the DIE.
 */
-DW_API int dwarf_die_abbrev_code(Dwarf_Die dw_die);
+DW_API Dwarf_Unsigned dwarf_die_abbrev_code(Dwarf_Die dw_die);
 
 /*! @brief Return TRUE if the DIE has children
 
@@ -4572,7 +4575,7 @@ DW_API int dwarf_loclist_from_expr_c(Dwarf_Debug dw_dbg,
     Dwarf_Unsigned dw_expression_length,
     Dwarf_Half     dw_address_size,
     Dwarf_Half     dw_offset_size,
-    Dwarf_Small    dw_dwarf_version,
+    Dwarf_Half     dw_dwarf_version,
     Dwarf_Loc_Head_c* dw_loc_head,
     Dwarf_Unsigned  * dw_listlen,
     Dwarf_Error     * dw_error);
@@ -6216,20 +6219,25 @@ DW_API int dwarf_get_abbrev_entry_b(Dwarf_Abbrev dw_abbrev,
     @param dw_dbg
     The Dwarf_Debug whose .debug_str section we want to access.
     @param dw_offset
-    Pass in a a string offset. Start at 0, and
+    Pass in a string offset. Start at 0, and
     for the next call pass in dw_offset
     plus dw_strlen_of_string plus 1.
     @param dw_string
+    The caller must pass in a valid pointer to a char *.
     On success returns a pointer to a string from offset
     dw_offset. Never dealloc or free this string.
     @param dw_strlen_of_string
+    The caller must pass in a valid pointer to a Dwarf_Signed.
+    
     On success returns the strlen() of the string.
     @param dw_error
     On error dw_error is set to point to the error details.
     @return
     The usual value: DW_DLV_OK etc.
-    If there is no such section or if dw_offset is >=
-    the section size it returns DW_DLV_NO_ENTRY.
+    If there is no such section it returns DW_DLV_NO_ENTRY.
+    If the dw_offset is greater than the section size,
+    or dw_string passed in is NULL or dw_strlen_of_string
+    is NULL the function returns DW_DLV_ERROR.
 */
 DW_API int dwarf_get_str(Dwarf_Debug dw_dbg,
     Dwarf_Off        dw_offset,
@@ -8160,7 +8168,13 @@ DW_API int dwarf_add_debuglink_global_path(Dwarf_Debug dw_dbg,
 
     Caller passes pointer to array of 4 unsigned char
     provided by the caller and if this returns DW_DLV_OK
-    that is filled in.
+    that array is filled in.
+ 
+    Callers must guarantee dw_crcbuf points
+    to at least 4 bytes of writable memory.
+    Passing in a null dw_crcbug results in an 
+    immediate return of DW_DLV_NO_ENTRY and
+    the pointer is not used.
 
     @param dw_dbg
     Pass in an open dw_dbg.  When you attempted
@@ -8169,7 +8183,7 @@ DW_API int dwarf_add_debuglink_global_path(Dwarf_Debug dw_dbg,
     The function reads the file into memory
     and performs a crc calculation.
     @param dw_crcbuf
-    Pass in a pointer to  a 4 byte area to hold
+    Pass in a pointer to a 4 byte area to hold
     the returned crc, on success the function
     puts the 4 bytes there.
     @param dw_error
@@ -8187,6 +8201,11 @@ DW_API int dwarf_crc32(Dwarf_Debug dw_dbg,
     not produce a return matching that of Linux/Macos if
     the compiler implements unsigned int or signed int as
     16 bits long.
+
+    The caller must guarantee that dw_buf is non-null
+    and pointing to dw_len bytes of readable memory.
+    If dw_buf is NULL then 0 is immediately returned
+    and there is no indication of error.
 
     @param dw_buf
     Pass in a pointer to some bytes on which the
@@ -8805,6 +8824,8 @@ DW_API int dwarf_get_section_info_by_name(Dwarf_Debug dw_dbg,
     @param dw_section_index
     Pass in an index, 0 through N-1 where
     N is the count returned from dwarf_get_section_count .
+    As an index type -int- works in practice, but should
+    really be Dwarf_Unsigned.
     @param dw_section_name
     On success returns a pointer to the section name
     as it appears in the object file.
@@ -8951,8 +8972,18 @@ DW_API int dwarf_machine_architecture(Dwarf_Debug dw_dbg,
     Dwarf_Unsigned *dw_comdat_groupnumber);
 
 /*! @brief Get section count (of object file sections).
+
+    Return the section count. Returns 0 if the
+    dw_debug argument is improper in any way. 
+
+    @param dw_dbt
+    @param dw_dbg
+    Pass in a valid Dwarf_Debug of interest.
+    @return
+    Returns the count of sections in the object file
+    or zero.
 */
-DW_API int dwarf_get_section_count(Dwarf_Debug dw_dbg);
+DW_API Dwarf_Unsigned dwarf_get_section_count(Dwarf_Debug dw_dbg);
 
 /*! @brief Get section sizes for many sections.
 

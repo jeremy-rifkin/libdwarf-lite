@@ -83,7 +83,7 @@ _dwarf_fix_up_offset_irix(Dwarf_Debug dbg,
 }
 #endif /* __sgi */
 
-#if 0
+#if 0 /* debug_print_range (debugging) */
 /*  Debugging only. Requires start. can calulate one of len, end */
 static void
 debug_print_range(const char *msg,
@@ -575,7 +575,7 @@ _dwarf_global_cu_len_error_msg(Dwarf_Debug dbg,
     int errornumber,
     const char * section_name,
     Dwarf_Unsigned section_length,
-    int   cu_number,
+    Dwarf_Unsigned cu_number,
     Dwarf_Unsigned length_section_offset,
     Dwarf_Unsigned length_field,
     Dwarf_Error *error)
@@ -1088,20 +1088,6 @@ _dwarf_internal_get_pubnames_like(Dwarf_Debug dbg,
     } while (pubnames_like_ptr < section_end_ptr);
     *return_count = global_count;
     return DW_DLV_OK;
-#if 0
-    if (!globals) {
-        return DW_DLV_OK;
-    }
-    {
-        int cbres = 0;
-        /*  Cannot return DW_DLV_NO_ENTRY */
-        cbres = _dwarf_chain_to_array(dbg,*out_phead_chain,
-            global_count, globals, error);
-        /* head_chain no longer points to anything */
-        *out_phead_chain = 0;
-        return cbres;
-    }
-#endif
 }
 
 static const int err3[]=
@@ -1508,7 +1494,7 @@ dwarf_global_name_offsets(Dwarf_Global global,
         }
         /* We already checked to make sure enough room
             with MIN_CU_HDR_SIZE */
-#if 0
+#if 0   /* Heuristic check for about to pass end, not usable. */
         /*  The offset had better not be too close to the end.
             If it is,
             _dwarf_length_of_cu_header() will step off the end and

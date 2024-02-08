@@ -50,7 +50,7 @@
 #include "dwarf_die_deliv.h"
 #include "dwarf_str_offsets.h"
 #include "dwarf_string.h"
-#if 0
+#if 0 /* dump_bytes */
 static void
 dump_bytes(const char *msg,int line,
     Dwarf_Small * start, long len)
@@ -432,6 +432,32 @@ dwarf_convert_to_global_offset(Dwarf_Attribute attr,
     are not references to .debug_info/.debug_types,
     so they are not allowed here. */
 
+static void
+show_not_ref_error(Dwarf_Debug dbg,
+    Dwarf_Error *error,
+    Dwarf_Half form,
+    Dwarf_Half attr)
+{
+    dwarfstring m;
+    const char *fname = 0;
+    const char *aname = 0;
+
+    /*DW_DLE_NOT_REF_FORM */
+    dwarfstring_constructor(&m);
+    
+    dwarf_get_FORM_name(form,&fname);
+    dwarf_get_AT_name(attr,&aname);
+    dwarfstring_append(&m,"DW_DLE_NOT_REF_FORM: ");
+    dwarfstring_append(&m,(char *)fname);
+    dwarfstring_append_printf_s(&m," (on attribute %s )",
+        (char *)aname);
+    dwarfstring_append(&m," for versions >= 4 ");
+    dwarfstring_append(&m,"is not a valid reference form");
+    _dwarf_error_string(dbg,error,DW_DLE_NOT_REF_FORM,
+        dwarfstring_string(&m));
+    dwarfstring_destructor(&m);
+}
+
 int
 dwarf_formref(Dwarf_Attribute attr,
     Dwarf_Off * ret_offset,
@@ -492,7 +518,7 @@ dwarf_formref(Dwarf_Attribute attr,
         /*  We need to look for a local reference here.
             The function we are in is only CU_local
             offsets returned. */
-#if 0
+#if 0  /* check for a local sig8 reference unimplemented. */
         Dwarf_Sig8 sig8;
         memcpy(&sig8,ptr,sizeof(Dwarf_Sig8));
         res = dwarf_find_die_given_sig8(dbg,
@@ -510,14 +536,20 @@ dwarf_formref(Dwarf_Attribute attr,
     }
     default: {
         dwarfstring m;
+        const char * fname = 0;
+        const char * aname = 0;
 
+        dwarf_get_FORM_name(attr->ar_attribute_form,&fname);
+        dwarf_get_AT_name(attr->ar_attribute,&aname);
         dwarfstring_constructor(&m);
         dwarfstring_append_printf_u(&m,
             "DW_DLE_BAD_REF_FORM. The form "
-            "code is 0x%x which does not have an offset "
-            " for "
-            "dwarf_formref() to return.",
+            "code is 0x%x ",
             attr->ar_attribute_form);
+        dwarfstring_append(&m,(char *)fname);
+        dwarfstring_append_printf_s(&m," on attribute %s, "
+            "which does not have an offset"
+            " for dwarf_formref() to return.",(char *)aname);
         _dwarf_error_string(dbg, error, DW_DLE_BAD_REF_FORM,
             dwarfstring_string(&m));
         dwarfstring_destructor(&m);
@@ -802,8 +834,9 @@ _dwarf_internal_global_formref_b(Dwarf_Attribute attr,
         That was first clearly documented in DWARF3.
         In DWARF4 these two forms are no longer references. */
     case DW_FORM_data4:
-        if (context_version >= DW_CU_VERSION4) {
-            _dwarf_error(dbg, error, DW_DLE_NOT_REF_FORM);
+        if (context_version >= DW_CU_VERSION4) { 
+            show_not_ref_error(dbg,error,attr->ar_attribute_form,
+                attr->ar_attribute);
             return DW_DLV_ERROR;
         }
         READ_UNALIGNED_CK(dbg, offset, Dwarf_Unsigned,
@@ -813,7 +846,8 @@ _dwarf_internal_global_formref_b(Dwarf_Attribute attr,
         break;
     case DW_FORM_data8:
         if (context_version >= DW_CU_VERSION4) {
-            _dwarf_error(dbg, error, DW_DLE_NOT_REF_FORM);
+            show_not_ref_error(dbg,error,attr->ar_attribute_form,
+                attr->ar_attribute);
             return DW_DLV_ERROR;
         }
         READ_UNALIGNED_CK(dbg, offset, Dwarf_Unsigned,
@@ -1029,7 +1063,7 @@ _dwarf_get_addr_index_itself(int theform,
         if the index refers
         to a local .debug_addr or a tied file .debug_addr
         so lets be cautious. */
-#if 0
+#if 0 /* Attempted check for index uncertain, unwise. Ignore. */
     if (!dbg->de_tied_data.td_tied_object &&
         index > dbg->de_filesize) {
         _dwarf_error_string(dbg,error,DW_DLE_ATTR_FORM_OFFSET_BAD,
@@ -1275,12 +1309,15 @@ dwarf_formaddr(Dwarf_Attribute attr,
             error);
         return res;
     }
-    if (attrform == DW_FORM_addr
-        /*  || attrform == DW_FORM_ref_addr Allowance of
+    if (attrform == DW_FORM_addr ||
+        (cu_context->cc_producer == CC_PROD_METROWERKS &&
+        attrform == DW_FORM_ref_addr) 
+            /* Allowance of
             DW_FORM_ref_addr was a mistake. The value returned in that
             case is NOT an address it is a global debug_info
             offset (ie, not CU-relative offset within the CU
             in debug_info).
+            A Metrowerks old C generates ref_adder!
             The DWARF2 document refers to it as an address
             (misleadingly) in sec 6.5.4 where it describes
             the reference form. It is

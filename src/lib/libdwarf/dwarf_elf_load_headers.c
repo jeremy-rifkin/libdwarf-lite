@@ -53,21 +53,9 @@ calls
 
 #include <stddef.h> /* size_t */
 #include <stdlib.h> /* calloc() free() malloc() */
+#include <stdio.h> /* printf debugging */
 #include <string.h> /* memcpy() strcmp() strdup()
     strlen() strncmp() */
-
-/* Windows specific header files */
-#ifdef _WIN32
-#ifdef HAVE_STDAFX_H
-#include "stdafx.h"
-#endif /* HAVE_STDAFX_H */
-#include <io.h> /* close() off_t */
-#elif defined HAVE_UNISTD_H
-#include <unistd.h> /* close() */
-#endif /* _WIN32 */
-#ifdef HAVE_FCNTL_H
-#include <fcntl.h> /* open() O_RDONLY */
-#endif /* HAVE_FCNTL_H */
 
 #include "dwarf.h"
 #include "libdwarf.h"
@@ -84,14 +72,7 @@ calls
 #include "dwarf_util.h"
 #include "dwarf_secname_ck.h"
 
-#ifndef O_BINARY
-#define O_BINARY 0
-#endif /* O_BINARY */
-#ifndef O_CLOEXEC
-#define O_CLOEXEC 0
-#endif /* O_CLOEXEC */
-
-#if 0
+#if 0 /* debugging only dumpsizes() */
 /*  One example of calling this.
     place just before DW_DLE_SECTION_SIZE_OR_OFFSET_LARGE
     dumpsizes(__LINE__,strsectlength,strpsh->gh_offset,
@@ -132,12 +113,17 @@ getbitsoncount(Dwarf_Unsigned v_in)
 
 static int
 _dwarf_load_elf_section_is_dwarf(const char *sname,
+    Dwarf_Unsigned sectype,
     int *is_rela,int *is_rel)
 {
     *is_rel = FALSE;
     *is_rela = FALSE;
     if (_dwarf_ignorethissection(sname)) {
         return FALSE;
+    }
+    if (sectype == SHT_RELA) {
+        *is_rela = TRUE;
+        return TRUE;
     }
     if (!strncmp(sname,".rel",4)) {
         if (!strncmp(sname,".rela.",6)) {
@@ -201,8 +187,11 @@ generic_ehdr_from_32(dwarf_elf_object_access_internals_t *ep,
     ASNAR(ep->f_copy_word,ehdr->ge_shentsize,e->e_shentsize);
     ASNAR(ep->f_copy_word,ehdr->ge_shnum,e->e_shnum);
     ASNAR(ep->f_copy_word,ehdr->ge_shstrndx,e->e_shstrndx);
+    if (!ehdr->ge_shoff) {
+        return DW_DLV_NO_ENTRY;
+    }
     if (ehdr->ge_shoff < sizeof(dw_elf32_ehdr)) {
-        /* zero or offset is inside the header! */
+        /* offset is inside the header! */
         *errcode = DW_DLE_TOO_FEW_SECTIONS;
         return DW_DLV_ERROR;
     }
@@ -221,6 +210,9 @@ generic_ehdr_from_32(dwarf_elf_object_access_internals_t *ep,
         ehdr->ge_shnum_extended = TRUE;
     } else {
         ehdr->ge_shnum_in_shnum = TRUE;
+        if (!ehdr->ge_shnum) {
+           return DW_DLV_NO_ENTRY;
+        }
         if (ehdr->ge_shnum < 3) {
             *errcode = DW_DLE_TOO_FEW_SECTIONS;
             return DW_DLV_ERROR;
@@ -266,6 +258,9 @@ generic_ehdr_from_64(dwarf_elf_object_access_internals_t* ep,
     ASNAR(ep->f_copy_word,ehdr->ge_shentsize,e->e_shentsize);
     ASNAR(ep->f_copy_word,ehdr->ge_shnum,e->e_shnum);
     ASNAR(ep->f_copy_word,ehdr->ge_shstrndx,e->e_shstrndx);
+    if (!ehdr->ge_shoff) {
+        return DW_DLV_NO_ENTRY;
+    }
     if (ehdr->ge_shoff < sizeof(dw_elf64_ehdr)) {
         /* zero or offset is inside the header! */
         *errcode = DW_DLE_TOO_FEW_SECTIONS;
@@ -284,6 +279,9 @@ generic_ehdr_from_64(dwarf_elf_object_access_internals_t* ep,
         ehdr->ge_shnum_extended = TRUE;
     } else {
         ehdr->ge_shnum_in_shnum = TRUE;
+        if (!ehdr->ge_shnum) {
+           return DW_DLV_NO_ENTRY;
+        }
         if (ehdr->ge_shnum < 3) {
             *errcode = DW_DLE_TOO_FEW_SECTIONS;
             return DW_DLV_ERROR;
@@ -305,7 +303,7 @@ generic_ehdr_from_64(dwarf_elf_object_access_internals_t* ep,
     return DW_DLV_OK;
 }
 
-#if 0 /* not used */
+#if 0 /* ngeneric_phdr_from_phdr32 not needed */
 static int
 generic_phdr_from_phdr32(dwarf_elf_object_access_internals_t* ep,
     struct generic_phdr **phdr_out,
@@ -844,7 +842,7 @@ _dwarf_generic_elf_load_symbols(
     }
     return res;
 }
-#if 0 /* not needed */
+#if 0 /* dwarf_load_elf_dynsym_symbols() not needed */
 int
 dwarf_load_elf_dynsym_symbols(
     dwarf_elf_object_access_internals_t *ep, int*errcode)
@@ -1079,7 +1077,7 @@ generic_rel_from_rel64(
     return DW_DLV_OK;
 }
 
-#if 0 /* not needed */
+#if 0 /* dwarf_load_elf_dynstr() not needed */
 int
 dwarf_load_elf_dynstr(
     dwarf_elf_object_access_internals_t *ep, int *errcode)
@@ -1788,7 +1786,7 @@ elf_load_elf_header32(
         free(ehdr);
         return res;
     }
-    ep->f_machine = ehdr->ge_machine;
+    ep->f_machine = (unsigned)ehdr->ge_machine;
     ep->f_flags = ehdr->ge_flags;
     return res;
 }
@@ -1817,7 +1815,7 @@ elf_load_elf_header64(
         free(ehdr);
         return res;
     }
-    ep->f_machine = ehdr->ge_machine;
+    ep->f_machine = (unsigned)ehdr->ge_machine;
     ep->f_flags = ehdr->ge_flags;
     return res;
 }
@@ -2135,6 +2133,7 @@ _dwarf_elf_setup_all_section_groups(
             psh->gh_section_group_number = DW_GROUPNUMBER_DWO;
             ep->f_dwo_group_section_count++;
         } else if (_dwarf_load_elf_section_is_dwarf(name,
+            psh->gh_type,
             &is_rela,&is_rel)) {
             if (!psh->gh_section_group_number) {
                 psh->gh_section_group_number = DW_GROUPNUMBER_BASE;

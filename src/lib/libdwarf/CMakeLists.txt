@@ -29,6 +29,7 @@ dwarf_rnglists.c
 dwarf_safe_arithmetic.c
 dwarf_safe_strcpy.c
 dwarf_secname_ck.c
+dwarf_seekr.c
 dwarf_setup_sections.c
 dwarf_string.h dwarf_string.c
 dwarf_stringsection.c
@@ -89,9 +90,6 @@ if (PIC_ALWAYS)
   list(APPEND DEFS PIC)
 endif()
 
-include(GNUInstallDirs)
-	
-
 if(BUILD_SHARED)
     add_library(dwarf SHARED ${SOURCES} ${HEADERS} ${CONFIGURATION_FILES})
     add_library(libdwarf::dwarf-shared ALIAS dwarf)
@@ -108,43 +106,34 @@ target_include_directories(dwarf PUBLIC
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
 if(ZLIB_FOUND AND ZSTD_FOUND)
-  target_link_libraries(dwarf PRIVATE  ZLIB::ZLIB ZSTD::ZSTD ) 
+  target_link_libraries(dwarf PRIVATE  ZLIB::ZLIB ${ZSTD_LIB} ) 
 endif()
-
-set(SUFFIX $<$<EQUAL:${CMAKE_SIZEOF_VOID_P},8>:64>)
-set(LIBDIR lib${SUFFIX})
-set(BINDIR bin${SUFFIX})
+set_target_properties(dwarf PROPERTIES PUBLIC_HEADER "libdwarf.h;dwarf.h")
 
 install(TARGETS dwarf
-	RUNTIME DESTINATION ${BINDIR}		
-	LIBRARY DESTINATION ${LIBDIR}
-	ARCHIVE DESTINATION ${LIBDIR})
+        RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+        LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+        )
 
-configure_file(libdwarf.pc.cmake libdwarf.pc @ONLY )
+configure_file(libdwarf.pc.cmake libdwarf.pc @ONLY)
 
 # The install has to be here, not in
 # another CMakeLists.txt  to make install work properly
 # for cmake before cmake 3.13. This also works
 # for newer cmake.
+include(CMakePackageConfigHelpers)
+configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/libdwarfConfig.cmake.in "${CMAKE_CURRENT_BINARY_DIR}/libdwarfConfig.cmake" INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libdwarf")
+write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/libdwarfConfigVersion.cmake" COMPATIBILITY SameMinorVersion)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libdwarfConfig.cmake" "${CMAKE_CURRENT_BINARY_DIR}/libdwarfConfigVersion.cmake" DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libdwarf")
 install(TARGETS dwarf EXPORT libdwarfTargets
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-    INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+        ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 install(EXPORT libdwarfTargets
-    FILE libdwarf-targets.cmake
-    NAMESPACE libdwarf::
-    DESTINATION lib/cmake/libdwarf
-)
-install(
-    FILES cmake/libdwarf-config.cmake
-    DESTINATION lib/cmake/libdwarf
-)
-install(
-    FILES ${CMAKE_CURRENT_SOURCE_DIR}/libdwarf.h
-    DESTINATION include/libdwarf)
-install(
-    FILES ${CMAKE_CURRENT_SOURCE_DIR}/dwarf.h
-    DESTINATION include/libdwarf)
-install( FILES ${PROJECT_BINARY_DIR}/src/lib/libdwarf/libdwarf.pc
-    DESTINATION lib/pkgconfig
-)
+        FILE libdwarf-targets.cmake
+        NAMESPACE libdwarf::
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libdwarf")
+install(FILES "${PROJECT_BINARY_DIR}/src/lib/libdwarf/libdwarf.pc" DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
+install(FILES "${PROJECT_SOURCE_DIR}/cmake/FindZSTD.cmake" DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libdwarf")

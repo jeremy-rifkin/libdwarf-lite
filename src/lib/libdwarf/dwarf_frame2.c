@@ -70,7 +70,7 @@
     tables for fast access into .eh_frame.
 */
 
-#if 0  /* FOR DEBUGGING */
+#if 0  /* dump_bytes FOR DEBUGGING */
 /* For debugging only. */
 static void
 dump_bytes(const char *msg,Dwarf_Small * start, long len)
@@ -107,8 +107,7 @@ static int _dwarf_create_cie_from_start(Dwarf_Debug dbg,
 
 static int _dwarf_get_gcc_eh_augmentation(Dwarf_Debug dbg,
     Dwarf_Small * frame_ptr,
-    unsigned long
-    *size_of_augmentation_data,
+    Dwarf_Unsigned *size_of_augmentation_data,
     enum Dwarf_augmentation_type augtype,
     Dwarf_Small * section_end_pointer,
     char *augmentation,
@@ -254,7 +253,7 @@ validate_length(Dwarf_Debug dbg,
     return;
 }
 
-#if 0 /* FOR DEBUGGING */
+#if 0 /* print_prefix() FOR DEBUGGING */
 /* For debugging only. */
 static void
 print_prefix(struct cie_fde_prefix_s *prefix, int line)
@@ -323,7 +322,7 @@ get_cieptr_given_offset(Dwarf_Debug dbg,
             cie_id itself, to
             use vm ptr of the value,
             less the value, to get to the cie header.  */
-        if ((Dwarf_Unsigned)cie_id_addr <= cie_id_value) {
+        if ((Dwarf_Unsigned)(uintptr_t)cie_id_addr <= cie_id_value) {
             _dwarf_error_string(dbg, error,
                 DW_DLE_DEBUG_FRAME_LENGTH_BAD,
                 "DW_DLE_DEBUG_FRAME_LENGTH_BAD: in eh_frame "
@@ -426,9 +425,6 @@ _dwarf_get_fde_list_internal(Dwarf_Debug dbg, Dwarf_Cie ** cie_data,
         if (frame_ptr >= section_ptr_end) {
             _dwarf_dealloc_fde_cie_list_internal(head_fde_ptr,
                 head_cie_ptr);
-#if 0
-            _dwarf_error(dbg, error, DW_DLE_DEBUG_FRAME_LENGTH_BAD);
-#endif
             _dwarf_error_string(dbg, error,
                 DW_DLE_DEBUG_FRAME_LENGTH_BAD,
                 "DW_DLE_DEBUG_FRAME_LENGTH_BAD: following "
@@ -770,7 +766,7 @@ _dwarf_create_cie_from_after_start(Dwarf_Debug dbg,
                 "with the CIE incomplete.  Corrupt Dwarf");
             return DW_DLV_ERROR;
         }
-#if 0
+#if 0 /* obsolete sgi exception table reference. Ignore. */
         /* REFERENCED *//* Not used in this instance */
         Dwarf_Unsigned exception_table_addr = 0;
         /* this is per egcs-1.1.2 as on RH 6.0 */
@@ -904,7 +900,7 @@ _dwarf_create_cie_from_after_start(Dwarf_Debug dbg,
 
     case aug_eh:{
         int err = 0;
-        unsigned long increment = 0;
+        Dwarf_Unsigned increment = 0;
 
         if (!use_gnu_cie_calc) {
             /* This should be impossible. */
@@ -1088,7 +1084,7 @@ _dwarf_create_fde_from_after_start(Dwarf_Debug dbg,
     Dwarf_Small *section_ptr_end,
     int          use_gnu_cie_calc,
     Dwarf_Cie    cie_ptr_in,
-    Dwarf_Small  address_size,
+    Dwarf_Half   address_size,
     Dwarf_Fde   *fde_ptr_out,
     Dwarf_Error *error)
 {
@@ -1978,10 +1974,9 @@ _dwarf_get_augmentation_type(Dwarf_Debug dbg,
 static int
 _dwarf_get_gcc_eh_augmentation(Dwarf_Debug dbg,
     Dwarf_Small * frame_ptr,
-    unsigned long *size_of_augmentation_data,
+    Dwarf_Unsigned *size_of_augmentation_data,
     enum Dwarf_augmentation_type augtype,
-    Dwarf_Small * section_ptr_end,
-    char *augmentation,
+    Dwarf_Small * section_ptr_end, char *augmentation,
     Dwarf_Error *error)
 {
     char *suffix = 0;

@@ -74,6 +74,7 @@ dwarfstring_resize_to(struct dwarfstring_s *g,size_t newlen)
     size_t lastpos   = g->s_size - g->s_avail;
     size_t malloclen = newlen+1;
 
+    /*  ASSERT: malloclen > g->s_size at both call points */
     if (malloclen < minimumnewlen) {
         malloclen = minimumnewlen;
     }
@@ -625,7 +626,7 @@ int dwarfstring_append_printf_i(dwarfstring *data,
     return res;
 }
 
-#if 0
+#if 0 /* Unused trimleadingzeros */
 /*  Counts hex chars. divide by two to get bytes from input
     integer. */
 static unsigned
