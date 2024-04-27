@@ -444,7 +444,7 @@ show_not_ref_error(Dwarf_Debug dbg,
 
     /*DW_DLE_NOT_REF_FORM */
     dwarfstring_constructor(&m);
-    
+
     dwarf_get_FORM_name(form,&fname);
     dwarf_get_AT_name(attr,&aname);
     dwarfstring_append(&m,"DW_DLE_NOT_REF_FORM: ");
@@ -783,6 +783,13 @@ _dwarf_internal_global_formref_b(Dwarf_Attribute attr,
     switch (attr->ar_attribute_form) {
 
     case DW_FORM_ref1:
+        if (attr->ar_debug_ptr >= section_end) {
+            _dwarf_error_string(dbg, error,
+                DW_DLE_ATTR_FORM_OFFSET_BAD,
+                "DW_DLE_ATTR_FORM_OFFSET_BAD: "
+                "DW_FORM_ref1 outside of the section.");
+            return DW_DLV_ERROR;
+        }
         offset = *(Dwarf_Small *) attr->ar_debug_ptr;
         goto fixoffset;
 
@@ -834,7 +841,7 @@ _dwarf_internal_global_formref_b(Dwarf_Attribute attr,
         That was first clearly documented in DWARF3.
         In DWARF4 these two forms are no longer references. */
     case DW_FORM_data4:
-        if (context_version >= DW_CU_VERSION4) { 
+        if (context_version >= DW_CU_VERSION4) {
             show_not_ref_error(dbg,error,attr->ar_attribute_form,
                 attr->ar_attribute);
             return DW_DLV_ERROR;
@@ -1311,7 +1318,7 @@ dwarf_formaddr(Dwarf_Attribute attr,
     }
     if (attrform == DW_FORM_addr ||
         (cu_context->cc_producer == CC_PROD_METROWERKS &&
-        attrform == DW_FORM_ref_addr) 
+        attrform == DW_FORM_ref_addr)
             /* Allowance of
             DW_FORM_ref_addr was a mistake. The value returned in that
             case is NOT an address it is a global debug_info
@@ -1643,14 +1650,23 @@ _dwarf_formblock_internal(Dwarf_Debug dbg,
     section_start =
         _dwarf_calculate_info_section_start_ptr(cu_context,
         &section_length);
-
     switch (attr->ar_attribute_form) {
-
-    case DW_FORM_block1:
-        length = *(Dwarf_Small *) attr->ar_debug_ptr;
-        data = attr->ar_debug_ptr + sizeof(Dwarf_Small);
+    case DW_FORM_block1: {
+        Dwarf_Small *start       = attr->ar_debug_ptr;
+        Dwarf_Small *incremented = start + 1;
+        if ( incremented < start ||
+            incremented >= section_end) {
+            /*  Error if +1 overflows or if points out of section. */
+            generate_form_error(dbg,error,attr->ar_attribute_form,
+                DW_DLE_ATTR_FORM_BAD,
+                "DW_DLE_ATTR_FORM_BAD",
+                " DW_FORM_block1 offset invalid");
+            return DW_DLV_ERROR;
+        }
+        length = *start;
+        data   = incremented;
         break;
-
+    }
     case DW_FORM_block2:
         READ_UNALIGNED_CK(dbg, length, Dwarf_Unsigned,
             attr->ar_debug_ptr, DWARF_HALF_SIZE,
@@ -1679,7 +1695,7 @@ _dwarf_formblock_internal(Dwarf_Debug dbg,
         generate_form_error(dbg,error,attr->ar_attribute_form,
             DW_DLE_ATTR_FORM_BAD,
             "DW_DLE_ATTR_FORM_BAD",
-            "dwarf_formblock");
+            "dwarf_formblock() finds unknown form");
         return DW_DLV_ERROR;
     }
     /*  We have the data. Check for errors. */

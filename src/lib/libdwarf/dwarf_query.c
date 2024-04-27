@@ -436,6 +436,8 @@ dwarf_attrlist(Dwarf_Die die,
         if (bres != DW_DLV_OK) {
             return bres;
         }
+        /*  Here we are guaranteed abbrev_list->abl_attr
+            is non-null */
     }
     /*  ASSERT  list->abl_addr and list->abl_form
         are non-null and if  list->abl_implicit_const_count > 0
@@ -531,7 +533,7 @@ dwarf_attrlist(Dwarf_Die die,
                 return DW_DLV_ERROR;
             }
             new_attr->ar_attribute = (Dwarf_Half)attr;
-            new_attr->ar_attribute_form_direct = 
+            new_attr->ar_attribute_form_direct =
                 (Dwarf_Half)attr_form;
             new_attr->ar_attribute_form = (Dwarf_Half)newattr_form;
             /*  Here the final address must be *inside* the
@@ -612,6 +614,23 @@ dwarf_attrlist(Dwarf_Die die,
         *attrcnt = attr_count;
     }
     return DW_DLV_OK;
+}
+
+static void
+build_alloc_qu_error(Dwarf_Debug dbg,
+    const char *fieldname,
+    Dwarf_Error *error)
+{
+    dwarfstring m;
+
+    dwarfstring_constructor(&m);
+    dwarfstring_append_printf_s(&m,
+        "DW_DLE_ALLOC_FAIL :"
+        " Attempt to malloc space for %s failed",
+        (char *)fieldname);
+    _dwarf_error_string(dbg,error,DW_DLE_ALLOC_FAIL,
+        dwarfstring_string(&m));
+    dwarfstring_destructor(&m);
 }
 
 /*
@@ -719,7 +738,16 @@ _dwarf_get_value_ptr(Dwarf_Die die,
             return bres;
         }
     }
-
+    if (!abbrev_list->abl_form) {
+        build_alloc_qu_error(dbg,"abbrev_list->abl_form"
+            " in _dwarf_get_value_ptr()", error);
+        return DW_DLV_ERROR;
+    }
+    if (!abbrev_list->abl_attr) {
+        build_alloc_qu_error(dbg,"abbrev_list->abl_attr"
+            " in _dwarf_get_value_ptr()", error);
+        return DW_DLV_ERROR;
+    }
     for (i = 0; i < abbrev_list->abl_abbrev_count; ++i) {
         Dwarf_Unsigned curr_attr_form = 0;
         Dwarf_Unsigned curr_attr = 0;
@@ -895,6 +923,11 @@ dwarf_attr(Dwarf_Die die,
         if (bres != DW_DLV_OK) {
             return bres;
         }
+    }
+    if (!abbrev_list->abl_form) {
+        build_alloc_qu_error(dbg,"abbrev_list->abl_form"
+            " in dwarf_attr()", error);
+        return DW_DLV_ERROR;
     }
     res = _dwarf_get_value_ptr(die, attr, &attr_form,&info_ptr,
         &implicit_const,error);
@@ -1696,6 +1729,8 @@ dwarf_arrayorder(Dwarf_Die die,
 /*  Return DW_DLV_OK if ok
     DW_DLV_ERROR if failure.
 
+    attr must be a valid attribute pointer.
+
     If the die and the attr are not related the result is
     meaningless.  */
 int
@@ -1720,6 +1755,9 @@ dwarf_attr_offset(Dwarf_Die die, Dwarf_Attribute attr,
 Dwarf_Unsigned
 dwarf_die_abbrev_code(Dwarf_Die die)
 {
+    if (!die) {
+        return 0;
+    }
     return die->di_abbrev_code;
 }
 
@@ -1730,6 +1768,9 @@ dwarf_die_abbrev_code(Dwarf_Die die)
 int
 dwarf_die_abbrev_children_flag(Dwarf_Die die,Dwarf_Half *ab_has_child)
 {
+    if (!die) {
+        return DW_DLV_ERROR;
+    }
     if (die->di_abbrev_list) {
         *ab_has_child = die->di_abbrev_list->abl_has_child;
         return DW_DLV_OK;

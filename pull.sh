@@ -7,7 +7,8 @@ git clone https://github.com/davea42/libdwarf-code.git
 cd libdwarf-code
 #git checkout "6216e185863f41d6f19ab850caabfff7326020d7" # v0.8.0
 #git checkout "8b0bd09d8c77d45a68cb1bb00a54186a92b683d9" # v0.9.0
-git checkout "8cdcc531f310d1c5ae61da469d8056bdd36b77e7" # v0.9.1 + cmake fixes
+#git checkout "8cdcc531f310d1c5ae61da469d8056bdd36b77e7" # v0.9.1 + cmake fixes
+git checkout "5e43a5ab73cb00c8a46660b361366a8c9c3c93c9" # v0.9.2
 cd ..
 echo "Copying files"
 mkdir -p src/lib
