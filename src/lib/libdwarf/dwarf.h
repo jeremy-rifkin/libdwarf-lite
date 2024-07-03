@@ -158,8 +158,8 @@ extern "C" {
 /* TI = Texas Instruments, for DWARF in COFF */
 /* https://www.ti.com/lit/an/spraab5/spraab5.pdf?ts=1705994928599 */
 
-#define DW_TAG_lo_user                  0x4080 /* TI */
 #define DW_TAG_TI_far_type              0x4080 /* TI */
+#define DW_TAG_lo_user                  0x4080 /* TI */
 #define DW_TAG_MIPS_loop                0x4081
 #define DW_TAG_TI_near_type             0x4081 /* TI */
 #define DW_TAG_TI_assign_register       0x4082 /* TI */
@@ -456,13 +456,12 @@ extern "C" {
 
 /*  In extensions, we attempt to include the vendor extension
     in the name even when the vendor leaves it out. */
-
 #define DW_AT_HP_block_index                    0x2000  /* HP */
-#define DW_AT_TI_veneer                         0x2000  /* TI */
-
-/*  0x2000 Follows extension so dwarfdump prints the
+/*  0x2000 follows extension so dwarfdump prints the
     most-likely-useful name. */
 #define DW_AT_lo_user                           0x2000
+
+#define DW_AT_TI_veneer                         0x2000  /* TI */
 
 #define DW_AT_MIPS_fde                          0x2001 /* MIPS/SGI */
 #define DW_AT_TI_symbol_name                    0x2001 /* TI */
@@ -728,6 +727,7 @@ extern "C" {
 #define DW_AT_APPLE_property                    0x3fed
 #define DW_AT_APPLE_objc_direct                 0x3fee
 #define DW_AT_APPLE_sdk                         0x3fef
+#define DW_AT_APPLE_origin                      0x3ff0
 
 #define DW_AT_hi_user                           0x3fff
 
@@ -1197,6 +1197,8 @@ most-likely-useful name. */
 #define DW_LANG_CPP_for_OpenCL          0x0038 /* DWARF6 */
 #define DW_LANG_SYCL                    0x0039 /* DWARF6 */
 #define DW_LANG_Ruby                    0x0040 /* DWARF6 */
+#define DW_LANG_Move                    0x0041 /* DWARF6 */
+#define DW_LANG_Hylo                    0x0042 /* DWARF6 */
 
 #define DW_LANG_lo_user                 0x8000
 #define DW_LANG_Mips_Assembler          0x8001 /* MIPS   */
@@ -1223,9 +1225,9 @@ most-likely-useful name. */
 #define DW_CC_nocall                    0x03
 #define DW_CC_pass_by_reference         0x04 /* DWARF5 */
 #define DW_CC_pass_by_value             0x05 /* DWARF5 */
-#define DW_CC_lo_user                   0x40
 
 #define DW_CC_GNU_renesas_sh            0x40 /* GNU */
+#define DW_CC_lo_user                   0x40
 #define DW_CC_GNU_borland_fastcall_i386 0x41 /* GNU */
 
 /* ALTIUM extensions. */
@@ -1404,8 +1406,8 @@ most-likely-useful name. */
 #define DW_CFA_val_offset         0x14 /* DWARF3f */
 #define DW_CFA_val_offset_sf      0x15 /* DWARF3f */
 #define DW_CFA_val_expression     0x16 /* DWARF3f */
-#define DW_CFA_lo_user            0x1c
 #define DW_CFA_TI_soffset_extended  0x1c /* TI */
+#define DW_CFA_lo_user            0x1c
 #define DW_CFA_low_user    0x1c  /* Incorrect spelling, do not use. */
 
 /* SGI/MIPS extension. */
