@@ -59,7 +59,7 @@
 #define MINIMUM_ADDRESS_SIZE 2
 #define MAXIMUM_ADDRESS_SIZE 8
 
-#if 0
+#if 0 /* dump rnglists context */
 #include "dwarf_rnglists.h" /* for debugging declaration */
 static void
 dumprnglists_context(Dwarf_Rnglists_Context *rnglists,
@@ -1245,7 +1245,7 @@ _dwarf_set_children_flag(Dwarf_CU_Context cucon,
     cucon->cc_cu_die_has_children = TRUE;
     chres = dwarf_die_abbrev_children_flag(cudie,&flag);
     /*  If chres is not DW_DLV_OK the assumption
-        of children remains true. */
+        of children remains TRUE. */
     if (chres == DW_DLV_OK) {
         cucon->cc_cu_die_has_children = flag;
     }
@@ -1440,7 +1440,29 @@ find_cu_die_base_fields(Dwarf_Debug dbg,
                 entry_pc_attrnum = i;
                 break;
             }
+            case DW_AT_ranges: {
+                Dwarf_Unsigned at_ranges_offset = 0;
+                int res = 0;
+                Dwarf_Bool is_info = cucon->cc_is_info;
 
+#if 0
+                res = dwarf_global_formref(attr,
+                    &at_ranges_offset,error);
+#endif
+                res = _dwarf_internal_global_formref_b(attr,
+                    /* avoid recurse creating context */ 1,
+                    &at_ranges_offset,
+                    &is_info,
+                    error);
+                if (res == DW_DLV_OK) {
+                    cucon->cc_at_ranges_offset = at_ranges_offset;
+                    cucon->cc_at_ranges_offset_present = TRUE;
+                } else {
+                    local_attrlist_dealloc(dbg,atcount,alist);
+                    return res;
+                }
+                break;
+            }
             /*  The offset is of the first offset in
                 .debug_str_offsets that is the string table
                 offset array for this CU. */
@@ -1475,6 +1497,7 @@ find_cu_die_base_fields(Dwarf_Debug dbg,
                     error);
                 if (udres == DW_DLV_OK) {
                     cucon->cc_loclists_base_present = TRUE;
+                    cucon->cc_loclists_base_via_at = TRUE;
                 } else {
                     local_attrlist_dealloc(dbg,atcount,alist);
                     /* Something is badly wrong. */
@@ -1518,12 +1541,18 @@ find_cu_die_base_fields(Dwarf_Debug dbg,
                 http://llvm.1065342.n5.nabble.com/
                 DebugInfo-DW-AT-GNU-ranges-base-in-
                 non-fission-td64194.html
-                But we accept it anyway. */
-            /*  offset in .debug_rnglists  of the offsets table
+                But we accept it anyway.
+                In dw4 GNU fission extension
+                it is used and matters.
+
+                offset in .debug_rnglists  of the offsets table
                 applicable to this CU.
+                Or for DW4 GNU .debug_ranges split dwarf
+                it refers to .debug_ranges.
                 Note that this base applies when
                 referencing from the dwp, but NOT
                 when referencing from the a.out */
+
                 int udres = 0;
                 Dwarf_Bool is_info = cucon->cc_is_info;
 
@@ -1552,6 +1581,7 @@ find_cu_die_base_fields(Dwarf_Debug dbg,
                     error);
                 if (udres == DW_DLV_OK) {
                     cucon->cc_rnglists_base_present = TRUE;
+                    cucon->cc_rnglists_base_via_at = TRUE;
                 } else {
                     local_attrlist_dealloc(dbg,atcount,alist);
                     /* Something is badly wrong. */
@@ -1705,10 +1735,9 @@ finish_up_cu_context_from_cudie(Dwarf_Debug dbg,
             assign_correct_unit_type(cu_context);
         }
         if (cu_context->cc_signature_present) {
-            /*  Initially just for DW_SECT_STR_OFFSETS,
-                finds the section offset of the
-                contribution which is not the same
-                as the table offset. */
+            /*  For finding base data from skeleton.
+                For the few fields inherited
+                (per the DWARF5 standard. */
             res = _dwarf_find_all_offsets_via_fission(dbg,
                 cu_context,error);
             if (res == DW_DLV_ERROR) {
@@ -1726,6 +1755,7 @@ finish_up_cu_context_from_cudie(Dwarf_Debug dbg,
 
     Invariant: cc_debug_offset in strictly
         ascending order in the list.
+    Never returns DW_DLV_NO_ENTRY
 */
 static int
 insert_into_cu_context_list(Dwarf_Debug_InfoTypes dis,
@@ -1845,9 +1875,13 @@ _dwarf_create_a_new_cu_context_record_on_list(
         local_dealloc_cu_context(dbg,cu_context);
         return res;
     }
-    /*  Add the new cu_context to a list of contexts */
+    /*  Add the new cu_context to a list of contexts
+        Never returns DW_DLV_NO_ENTRY */
     icres = insert_into_cu_context_list(dis,cu_context);
     if (icres == DW_DLV_ERROR) {
+        /*  Correcting ossfuzz70721 DW202407-010  */
+        dwarf_dealloc_die(*cudie_return);
+        *cudie_return = 0;
         local_dealloc_cu_context(dbg,cu_context);
         _dwarf_error_string(dbg,error,DW_DLE_DIE_NO_CU_CONTEXT,
             "DW_DLE_DIE_NO_CU_CONTEXT"
@@ -2004,9 +2038,6 @@ _dwarf_next_cu_header_internal(Dwarf_Debug dbg,
             dbg,dis,is_info,section_size,new_offset,
             &cu_context,&local_cudie,error);
         if (res != DW_DLV_OK) {
-            if (local_cudie) {
-                dwarf_dealloc_die(local_cudie);
-            }
             return res;
         }
     }
@@ -2318,13 +2349,13 @@ dwarf_validate_die_sibling(Dwarf_Die sibling,Dwarf_Off *offset)
 
 /*  This function does two slightly different things
     depending on the input flag want_AT_sibling.  If
-    this flag is true, it checks if the input die has
+    this flag is TRUE, it checks if the input die has
     a DW_AT_sibling attribute.  If it does it returns
     a pointer to the start of the sibling die in the
     .debug_info section.  Otherwise it behaves the
-    same as the want_AT_sibling false case.
+    same as the want_AT_sibling FALSE case.
 
-    If the want_AT_sibling flag is false, it returns
+    If the want_AT_sibling flag is FALSE, it returns
     a pointer to the immediately adjacent die in the
     .debug_info section.
 
@@ -2335,11 +2366,11 @@ dwarf_validate_die_sibling(Dwarf_Die sibling,Dwarf_Off *offset)
     to the start of the .debug_info portion for the
     current cu, and is used to add to the offset for
     DW_AT_sibling attributes.  Finally, has_die_child
-    is a pointer to a Dwarf_Bool that is set true if
-    the present die has children, false otherwise.
-    However, in case want_AT_child is true and the die
+    is a pointer to a Dwarf_Bool that is set TRUE if
+    the present die has children, FALSE otherwise.
+    However, in case want_AT_child is TRUE and the die
     has a DW_AT_sibling attribute *has_die_child is set
-    false to indicate that the children are being skipped.
+    FALSE to indicate that the children are being skipped.
 
     die_info_end  points to the last byte+1 of the cu.  */
 static int
@@ -2497,7 +2528,7 @@ _dwarf_next_die_info_ptr(Dwarf_Byte_Ptr die_info_ptr,
             }
 
             /*  Reset *has_die_child to indicate children skipped.  */
-            *has_die_child = false;
+            *has_die_child = FALSE;
 
             /*  A value beyond die_info_end indicates an error.
                 Exactly at die_info_end means 1-past-cu-end
@@ -2640,7 +2671,7 @@ is_cu_tag(int t)
     is used to track the depth of children and sibling terminations
     encountered.  Child_depth is incremented when a die has the
     Has-Child flag set unless the child happens to be a NULL die.
-    Child_depth is decremented when a die has Has-Child false,
+    Child_depth is decremented when a die has Has-Child FALSE,
     and the adjacent die is NULL.  Algorithm returns when
     child_depth is 0.
 
@@ -2669,7 +2700,7 @@ dwarf_siblingof_b(Dwarf_Debug dbg,
     } else {
         /*  This is the pre-0.9.0 way, and is assuming
             that the 'dis' has the correct cu context.
-            Which might not be true if a caller
+            Which might not be TRUE if a caller
             used dwarf_next_cu_header_d() twice in a
             row before calling dwarf_siblingof_b().
             Use dwarf_next_cu_header_e() instead of
@@ -2783,7 +2814,7 @@ _dwarf_siblingof_internal(Dwarf_Debug dbg,
         }
     } else {
         /* Find sibling die. */
-        Dwarf_Bool has_child = false;
+        Dwarf_Bool has_child = FALSE;
         Dwarf_Signed child_depth = 0;
 
         /*  We cannot have a legal die unless debug_info
@@ -2809,7 +2840,7 @@ _dwarf_siblingof_internal(Dwarf_Debug dbg,
 
             res2 = _dwarf_next_die_info_ptr(die_info_ptr,
                 context, die_info_end,
-                cu_info_start, true, &has_child,
+                cu_info_start, TRUE, &has_child,
                 &die_info_ptr2,
                 error);
             if (res2 != DW_DLV_OK) {
@@ -2884,7 +2915,7 @@ _dwarf_siblingof_internal(Dwarf_Debug dbg,
             if (die_info_ptr < die_info_end) {
                 if ((*die_info_ptr) == 0 && has_child) {
                     die_info_ptr++;
-                    has_child = false;
+                    has_child = FALSE;
                 }
             }
 
@@ -3080,7 +3111,7 @@ dwarf_child(Dwarf_Die die,
     res = _dwarf_next_die_info_ptr(die_info_ptr,
         die->di_cu_context,
         die_info_end,
-        NULL, false,
+        NULL, FALSE,
         &has_die_child,
         &die_info_ptr2,
         error);
