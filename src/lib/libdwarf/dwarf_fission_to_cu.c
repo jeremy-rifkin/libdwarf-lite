@@ -49,6 +49,27 @@
 #include "dwarf_loclists.h"
 #include "dwarf_rnglists.h"
 
+/*  RETURNS DW_DLV_OK and sets values
+    through  the return-value pointers.
+    Or returns DW_DLV_NO_ENTRY */
+int
+_dwarf_has_SECT_fission(Dwarf_CU_Context ctx,
+    unsigned int      SECT_number,
+    Dwarf_Bool       *hasfissionoffset,
+    Dwarf_Unsigned   *loclistsbase)
+{
+    struct Dwarf_Debug_Fission_Per_CU_s *fis = 0;
+    Dwarf_Unsigned  fisindex = SECT_number;
+
+    fis = &ctx->cc_dwp_offsets;
+    if (fis->pcu_type && fis->pcu_size[fisindex]) {
+        *loclistsbase = fis->pcu_offset[fisindex];
+        *hasfissionoffset = TRUE;
+        return DW_DLV_OK;
+    }
+    return DW_DLV_NO_ENTRY;
+}
+
 /*  ASSERT: dbg,cu_context, and fsd are non-NULL
     as the caller ensured that.
     With no DW_AT_loclists_base this computes one. */
@@ -270,8 +291,13 @@ load_xu_rnglists_into_cucontext(Dwarf_Debug dbg,
     if (res != DW_DLV_OK) {
         return res;
     }
+
     cu_context->cc_rnglists_base  =
         buildhere->rc_offsets_off_in_sect;
+printf("debug SET rnglists base from rc_offsetts_off_in_sectt: "
+"0x%lx lie %d\n",
+(unsigned long)cu_context->cc_rnglists_base,
+__LINE__);
     cu_context->cc_rnglists_base_present = TRUE;
     cu_context->cc_rnglists_base_contr_size = size;
     /* FIXME cc_rnglists_header_length_present? */

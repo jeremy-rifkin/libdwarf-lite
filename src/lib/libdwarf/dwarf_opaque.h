@@ -1,6 +1,6 @@
 /*
   Copyright (C) 2000-2005 Silicon Graphics, Inc.  All Rights Reserved.
-  Portions Copyright (C) 2007-2023 David Anderson. All Rights Reserved.
+  Portions Copyright (C) 2007-2024 David Anderson. All Rights Reserved.
   Portions Copyright (C) 2008-2010 Arxan Technologies, Inc. All Rights Reserved.
 
   This program is free software; you can redistribute it
@@ -70,6 +70,31 @@
     .debug_tu_index         -      -      -      5
 
 */
+#define DBG_IS_SECONDARY(p) ((p) && (p)->de_secondary_dbg &&   \
+    ((p)->de_secondary_dbg == (p)))
+#define DBG_IS_PRIMARY(p) ((p) && ((!(p)->de_secondary_dbg) ||  \
+    ((p)->de_secondary_dbg && ((p)->de_secondary_dbg != (p)))))
+#define DBG_HAS_SECONDARY(p) (DBG_IS_PRIMARY(p) && \
+    (DBG_IS_SECONDARY((p)->de_secondary_dbg)))
+
+#define DEBUG_PRIMARY_DBG 1 /* only for debugging */
+#undef  DEBUG_PRIMARY_DBG
+#ifdef DEBUG_PRIMARY_DBG
+const char *
+_dwarf_basename(const char *full);
+
+void
+_dwarf_print_is_primary(const char *msg,Dwarf_Debug p,int line,
+    const char *filepath);
+void
+_dwarf_dump_prim_sec(const char *msg,Dwarf_Debug p, int line,
+    const char *filepath);
+void
+_dwarf_dump_optional_fields(const char *msg,
+    Dwarf_CU_Context context,
+    int line,
+    const char *filepath);
+#endif /* DEBUG_PRIMARY_DBG */
 
 struct Dwarf_Rnglists_Context_s;
 typedef struct Dwarf_Rnglists_Context_s *Dwarf_Rnglists_Context;
@@ -111,6 +136,7 @@ struct Dwarf_Attribute_s {
 };
 
 #define CC_PROD_METROWERKS 1
+#define CC_PROD_Apple      2 /* Apple clang */
 
 /*
     This structure provides the context for a compilation unit.
@@ -228,8 +254,17 @@ struct Dwarf_CU_Context_s {
 
     Dwarf_Bool cc_signature_present; /* Meaning type signature
         in TU header or, for CU header, signature in CU DIE. */
+
+    /*  cc_low_pc[_present] is applied as base address of
+        of rnglists and loclists when reading an rle_head,
+        compied into cc_cu_base_address. Comes from
+        CU_DIE, not rnglists or loclists */
     Dwarf_Bool cc_low_pc_present;
-    Dwarf_Bool cc_addr_base_present;   /* Not TRUE in .dwo */
+
+    /*  From CU_DIE. Copied from cc_low_pc_present.
+        Used as default base address for rnglists, loclists.
+        in a DWARF5 dwo, inherited from skeleton (tieddbg). */
+    Dwarf_Bool cc_base_address_present;
 
     Dwarf_Bool cc_cu_die_has_children;
     Dwarf_Bool cc_dwo_name_present;
@@ -243,6 +278,9 @@ struct Dwarf_CU_Context_s {
         cc_cu_die_global_sec_offset is meaningful.  */
     Dwarf_Bool     cc_cu_die_offset_present;
     Dwarf_Bool     cc_at_ranges_offset_present;
+    /*  About: DW_AT_addr_base in CU DIE,
+        offset to .debug_addr table */
+    Dwarf_Bool     cc_addr_base_offset_present;
 
     /*  If present, is base address of CU.  In DWARF2
         nothing says what attribute is the base address.
@@ -256,8 +294,13 @@ struct Dwarf_CU_Context_s {
         In DWARF3, DWARF4 DW_AT_low_pc is specifically
         mentioned as the base address.  */
     Dwarf_Unsigned cc_low_pc;
+
     /*  from DW_AT_addr_base in CU DIE, offset to .debug_addr table */
-    Dwarf_Unsigned cc_addr_base;  /* Zero in .dwo */
+    Dwarf_Unsigned cc_addr_base_offset;  /* Zero in .dwo */
+
+    /*  From cc_low_pc, used as initial base_address
+        in processing loclists and rnglists  */
+    Dwarf_Unsigned  cc_base_address;
 
     /*  DW_SECT_LINE */
     Dwarf_Bool     cc_line_base_present;     /*DW5 */
@@ -542,19 +585,13 @@ struct Dwarf_Tied_Data_s {
         Pointer to the tied_to Dwarf_Debug*/
     Dwarf_Debug td_tied_object;
 
-    /*  TRUE if this tied object is tied to.
-        It's extra work to look for a DW_AT_dwo_id.
-        Set when tied dbg (on the base) was created.
-        This helps us do it only when it may be productive. */
-    Dwarf_Bool td_is_tied_object;
-
     /*  Used for Type Unit signatures.
         Type Units are in .debug_types in DW4
         but in .debug_info in DW5.
         Some .debug_info point to them symbolically
         via DW_AT_signature attributes.
         If non-zero is a dwarf_tsearch 'tree'.
-        Only non-zero if td_is_tied_object is set and
+        Only non-zero if
         we had a reason to build the search tree..
         Type Units have a Dwarf_Sig8 signature
         in the header, and such is recorded here.
@@ -563,7 +600,7 @@ struct Dwarf_Tied_Data_s {
         signatures in split-dwarf (dwo/dwp) sections.
 
         The Key for each record is a Dwarf_Sig8 (8 bytes).
-        The data for each is a pointer to a Dwarf_CU_context
+        The data for each is a pointer to a Dwarf_CU_Context
         record in this dbg (cu_context in
         one of tied dbg's de_cu_context_list). */
     void *td_tied_search;
@@ -598,6 +635,15 @@ struct Dwarf_Debug_s {
         We get a pointer, callers control the lifetime of the
         structure and contents. */
     struct Dwarf_Obj_Access_Interface_a_s *de_obj_file;
+
+    /*  See dwarf_generic_init.c comments on the
+        use of the next four fields. And see
+        DBG_IS_SECONDARY(p) DBG_IS_PRIMARY(p)
+        DBG_HAS_SECONDARY(p) below and  also dwarf_util.c */
+    struct Dwarf_Debug_s * de_dbg;
+    struct Dwarf_Debug_s * de_primary_dbg;
+    struct Dwarf_Debug_s * de_secondary_dbg;
+    struct Dwarf_Debug_s * de_errors_dbg;
 
     Dwarf_Handler de_errhand;
     Dwarf_Ptr de_errarg;
@@ -958,8 +1004,7 @@ int _dwarf_search_for_signature(Dwarf_Debug dbg,
     Dwarf_CU_Context *context_out,
     Dwarf_Error *error);
 
-int _dwarf_merge_all_base_attrs_of_cu_die(Dwarf_Debug dbg,
-    Dwarf_CU_Context context,
+int _dwarf_merge_all_base_attrs_of_cu_die(Dwarf_CU_Context context,
     Dwarf_Debug tieddbg,
     Dwarf_CU_Context *tiedcontext_out,
     Dwarf_Error *error);
@@ -1155,9 +1200,22 @@ _dwarf_internal_global_formref_b(Dwarf_Attribute attr,
     Dwarf_Bool * offset_is_info,
     Dwarf_Error * error);
 
-int _dwarf_skip_leb128(char * /*leb*/,
-    Dwarf_Unsigned * /*leblen*/,
-    char           * /*endptr*/);
+int
+_dwarf_has_SECT_fission(Dwarf_CU_Context ctx,
+    unsigned int      SECT_number, /* example: DW_SECT_RNGLISTS */
+    Dwarf_Bool       *hasfissionoffset,
+    Dwarf_Unsigned   *loclistsbase);
+
+int _dwarf_skip_leb128(char * leb,
+    Dwarf_Unsigned * leblen,
+    char           * endptr);
+
+/*  Used for DW_AT_ranges to get base address along with
+    dwarf_lowpc() */
+int
+_dwarf_entrypc(Dwarf_Die die,
+    Dwarf_Addr  *return_addr,
+    Dwarf_Error *error);
 
 int _dwarf_get_suppress_debuglink_crc(void);
 void _dwarf_dumpsig(const char *msg, Dwarf_Sig8 *sig, int lineno);

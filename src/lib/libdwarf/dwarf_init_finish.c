@@ -1035,6 +1035,8 @@ dwarf_object_init_b(Dwarf_Obj_Access_Interface_a* obj,
         size. */
     dbg = _dwarf_get_debug(filesize);
     if (IS_INVALID_DBG(dbg)) {
+        dwarf_finish(dbg);
+        dbg = 0;
         DWARF_DBG_ERROR(dbg, DW_DLE_DBG_ALLOC, DW_DLV_ERROR);
     }
     dbg->de_errhand = errhand;
@@ -1044,6 +1046,12 @@ dwarf_object_init_b(Dwarf_Obj_Access_Interface_a* obj,
     dbg->de_frame_cfa_col_number = DW_FRAME_CFA_COL3;
     dbg->de_frame_same_value_number = DW_FRAME_SAME_VAL;
     dbg->de_frame_undefined_value_number  = DW_FRAME_UNDEFINED_VAL;
+    dbg->de_dbg = dbg;
+    /*  See  dwarf_set_tied_dbg()  dwarf_get_tied_dbg()
+        and comments in dwarf_opaque.h*/
+    dbg->de_primary_dbg = dbg;
+    dbg->de_secondary_dbg = 0;
+    dbg->de_errors_dbg = dbg;
 
     dbg->de_obj_file = obj;
     dbg->de_filesize = filesize;
@@ -1099,7 +1107,7 @@ dwarf_object_init_b(Dwarf_Obj_Access_Interface_a* obj,
             /* *error safe */
             dwarfstring_append(&msg,dwarf_errmsg(*error));
             /*  deallocate the soon-stale error pointer. */
-            dwarf_dealloc(dbg,*error,DW_DLA_ERROR);
+            dwarf_dealloc_error(dbg,*error);
             /* *error safe */
             *error = 0;
         }

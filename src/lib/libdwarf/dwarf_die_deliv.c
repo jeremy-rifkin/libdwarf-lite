@@ -1185,7 +1185,6 @@ _dwarf_setup_base_address(Dwarf_Debug dbg,
 {
     int lres = 0;
     Dwarf_Half form = 0;
-
     /*  If the form is indexed, we better have
         seen DW_AT_addr_base.! */
     lres = dwarf_whatform(attr,&form,error);
@@ -1226,6 +1225,8 @@ _dwarf_setup_base_address(Dwarf_Debug dbg,
             if it was DW_AT_entry_pc with no DW_AT_low_pc
             Allowing DW_AT_entry_pc */
         cucon->cc_low_pc_present = TRUE;
+        cucon->cc_base_address_present = TRUE;
+        cucon->cc_base_address = cucon->cc_low_pc;
     } else {
         /* Something is badly wrong. */
         return lres;
@@ -1290,6 +1291,8 @@ set_producer_type(Dwarf_Die die,
     }
     if (_dwarf_prod_contains("Metrowerks",producer)) {
         cu_context->cc_producer = CC_PROD_METROWERKS;
+    } else if (_dwarf_prod_contains("Apple",producer)) {
+        cu_context->cc_producer = CC_PROD_Apple;
     }
 }
 
@@ -1318,7 +1321,6 @@ find_cu_die_base_fields(Dwarf_Debug dbg,
 
     cu_context = cudie->di_cu_context;
     version_stamp = cu_context->cc_version_stamp;
-
     alres = dwarf_attrlist(cudie, &alist,
         &atcount,error);
     if (alres != DW_DLV_OK) {
@@ -1445,10 +1447,6 @@ find_cu_die_base_fields(Dwarf_Debug dbg,
                 int res = 0;
                 Dwarf_Bool is_info = cucon->cc_is_info;
 
-#if 0
-                res = dwarf_global_formref(attr,
-                    &at_ranges_offset,error);
-#endif
                 res = _dwarf_internal_global_formref_b(attr,
                     /* avoid recurse creating context */ 1,
                     &at_ranges_offset,
@@ -1519,14 +1517,14 @@ find_cu_die_base_fields(Dwarf_Debug dbg,
 
                 udres = _dwarf_internal_global_formref_b(attr,
                     /* avoid recurse creating context */ 1,
-                    &cucon->cc_addr_base,
+                    &cucon->cc_addr_base_offset,
                     &is_info,
                     error);
                 if (udres == DW_DLV_OK) {
                     if (is_info == cucon->cc_is_info) {
                         /*  Only accept if same .debug section,
                             which is relevant for DWARF4 */
-                        cucon->cc_addr_base_present = TRUE;
+                        cucon->cc_addr_base_offset_present = TRUE;
                     }
                 } else {
                     local_attrlist_dealloc(dbg,atcount,alist);
@@ -1551,7 +1549,10 @@ find_cu_die_base_fields(Dwarf_Debug dbg,
                 it refers to .debug_ranges.
                 Note that this base applies when
                 referencing from the dwp, but NOT
-                when referencing from the a.out */
+                when referencing from the a.out
+
+                In DW4 extension split dwarf the .debug_ranges
+                is always in the tied-file (executable). */
 
                 int udres = 0;
                 Dwarf_Bool is_info = cucon->cc_is_info;
@@ -1610,22 +1611,10 @@ find_cu_die_base_fields(Dwarf_Debug dbg,
             }
         }
     }
-    if (low_pc_attrnum >= 0 ){
-        int battr = 0;
-
-        /* Prefer DW_AT_low_pc */
-        Dwarf_Attribute attr = alist[low_pc_attrnum];
-        battr = _dwarf_setup_base_address(dbg,"DW_AT_low_pc",
-            attr,at_addr_base_attrnum, cucon,
-            bad_pc_form,error);
-        if (battr != DW_DLV_OK) {
-            local_attrlist_dealloc(dbg,atcount,alist);
-            /*  Something is wrong, possibly
-                erroneous Macrowerks compiler. */
-            _dwarf_set_children_flag(cucon,cudie);
-            return battr;
-        }
-    } else if (entry_pc_attrnum >= 0) {
+    /*  Only on Apple do we let entry_pc
+        be used as base address.  */
+    if (entry_pc_attrnum >= 0 &&
+        cucon->cc_producer == CC_PROD_Apple) {
         int battr = 0;
 
         /*  Pretending that DW_AT_entry_pc with no
@@ -1636,7 +1625,8 @@ find_cu_die_base_fields(Dwarf_Debug dbg,
             base address (DW_AT_entry_pc first appears in DWARF3).
             So we allow that as an extension,
             as a 'low_pc' if there is DW_AT_entry_pc with
-            no DW_AT_low_pc. 19 May 2022. */
+            no DW_AT_low_pc. 19 May 2022.
+            Also used by gcc with a DWARF4 split-dwarf extension. */
         Dwarf_Attribute attr = alist[entry_pc_attrnum];
         battr = _dwarf_setup_base_address(dbg,"DW_AT_entry_pc",
             attr,at_addr_base_attrnum, cucon,
@@ -1648,6 +1638,21 @@ find_cu_die_base_fields(Dwarf_Debug dbg,
             return battr;
         }
     }
+    if (low_pc_attrnum >= 0 ){
+        int battr = 0;
+
+        Dwarf_Attribute attr = alist[low_pc_attrnum];
+        battr = _dwarf_setup_base_address(dbg,"DW_AT_low_pc",
+            attr,at_addr_base_attrnum, cucon,
+            bad_pc_form,error);
+        if (battr != DW_DLV_OK) {
+            local_attrlist_dealloc(dbg,atcount,alist);
+            /*  Something is wrong, possibly
+                erroneous Macrowerks compiler. */
+            _dwarf_set_children_flag(cucon,cudie);
+            return battr;
+        }
+    }
     local_attrlist_dealloc(dbg,atcount,alist);
     alist = 0;
     atcount = 0;
@@ -1655,7 +1660,10 @@ find_cu_die_base_fields(Dwarf_Debug dbg,
     return DW_DLV_OK;
 }
 
-/*  Called only for DWARF4 */
+/*  Called only for DWARF4 and earlier
+    so there is consistent naming of unit_type
+    even though there was no such field in
+    DWARF2-DWARF4. */
 static void
 assign_correct_unit_type(Dwarf_CU_Context cu_context)
 {
@@ -1737,7 +1745,9 @@ finish_up_cu_context_from_cudie(Dwarf_Debug dbg,
         if (cu_context->cc_signature_present) {
             /*  For finding base data from skeleton.
                 For the few fields inherited
-                (per the DWARF5 standard. */
+                (per the DWARF5 standard but for
+                .debug_rnglists is not interited
+                in spite of what DW5 says). */
             res = _dwarf_find_all_offsets_via_fission(dbg,
                 cu_context,error);
             if (res == DW_DLV_ERROR) {
@@ -1952,8 +1962,8 @@ _dwarf_load_die_containing_section(Dwarf_Debug dbg,
 
 int
 _dwarf_next_cu_header_internal(Dwarf_Debug dbg,
-    Dwarf_Bool is_info,
-    Dwarf_Die *cu_die_out,
+    Dwarf_Bool   is_info,
+    Dwarf_Die  * cu_die_out,
     Dwarf_Unsigned * cu_header_length,
     Dwarf_Half * version_stamp,
     Dwarf_Unsigned * abbrev_offset,
@@ -2088,14 +2098,17 @@ _dwarf_next_cu_header_internal(Dwarf_Debug dbg,
     }
     {
         Dwarf_Debug tieddbg = 0;
-        int tres = 0;
-        tieddbg = dbg->de_tied_data.td_tied_object;
-        if (tieddbg) {
+        int tres = DW_DLV_OK;
+        tieddbg = dbg->de_secondary_dbg;
+        if (DBG_IS_PRIMARY(dbg) && DBG_IS_SECONDARY(tieddbg)) {
+            /*  We are in the main, merge tied
+                into main cu_context */
             tres = _dwarf_merge_all_base_attrs_of_cu_die(
-                dbg, cu_context,
-                tieddbg, 0,
+                cu_context,
+                tieddbg,
+                0 /* we do not want the context returned */,
                 error);
-        }
+        } /* Else no merge */
         if (tres == DW_DLV_ERROR && error) {
             /*  We'll assume any errors will be
                 discovered later. Lets get our

@@ -46,6 +46,9 @@
 #include "dwarf_util.h"
 #include "dwarf_string.h"
 
+#define DEBUG_RANGES 1
+#undef DEBUG_RANGES
+
 struct ranges_entry {
     struct ranges_entry *next;
     Dwarf_Ranges cur;
@@ -129,7 +132,6 @@ int dwarf_get_ranges_b(Dwarf_Debug dbg,
     int res = DW_DLV_ERROR;
     Dwarf_Unsigned ranges_base = 0;
     Dwarf_Debug    localdbg = dbg;
-    Dwarf_Error    localerror = 0;
 
     /* default for dwarf_get_ranges() */
     Dwarf_Half     die_version = 3;
@@ -140,7 +142,8 @@ int dwarf_get_ranges_b(Dwarf_Debug dbg,
     CHECK_DBG(dbg,error,"dwarf_get_ranges_b()");
     address_size = localdbg->de_pointer_size; /* default  */
     if (die) {
-        /*  printing by raw offset from DW_AT_ranges attribute.
+        /*  printing DW_AT_ranges attribute. and the local DIE
+            it belongs to.
             If we wind up using the tied file the die_version
             had better match! It cannot be other than a match.
             Can return DW_DLV_ERROR, not DW_DLV_NO_ENTRY.
@@ -187,16 +190,18 @@ int dwarf_get_ranges_b(Dwarf_Debug dbg,
     if (res == DW_DLV_ERROR) {
         return res;
     }
+    /*  FIX. HAS_TIED or ? */
     if (res == DW_DLV_NO_ENTRY) {
         /* data is in a.out, not dwp */
-        localdbg = dbg->de_tied_data.td_tied_object;
-        if (!localdbg) {
+        if (!DBG_HAS_SECONDARY(dbg)) {
             return DW_DLV_NO_ENTRY;
         }
+        localdbg = dbg->de_secondary_dbg;
         res = _dwarf_load_section(localdbg,
-            &localdbg->de_debug_ranges, &localerror);
+            &localdbg->de_debug_ranges, error);
         if (res == DW_DLV_ERROR) {
-            _dwarf_error_mv_s_to_t(localdbg,&localerror,dbg,error);
+            /*  Error will automatically be put on dbg (main
+                dbg), not localdbg (tieddbg) as of late 2024. */
             return res;
         }
         if (res == DW_DLV_NO_ENTRY) {
@@ -248,12 +253,6 @@ int dwarf_get_ranges_b(Dwarf_Debug dbg,
     section_end = localdbg->de_debug_ranges.dss_data +
         localdbg->de_debug_ranges.dss_size;
     rangeptr = localdbg->de_debug_ranges.dss_data;
-#if 0
-    if (!rangeslocal) {
-        /* printing ranges where range source is dwp,
-            here we just assume present. */
-    }
-#endif
     rangeptr += rangesoffset;
     beginrangeptr = rangeptr;
 
@@ -366,6 +365,12 @@ dwarf_dealloc_ranges(Dwarf_Debug dbg, Dwarf_Ranges * rangesbuf,
     dwarf_dealloc(dbg,rangesbuf, DW_DLA_RANGES);
 }
 
+/*  Also used to determine DIE base_address,
+    but that was wrong.
+    Only a CU_die DW_AT_low_pc can provide
+    a CU-wide base address and that is done when a CU is first
+    read, and available as cucontext->cc_base_address
+    and cc_base_address_present.  */
 static int
 _dwarf_determine_die_range_offset(Dwarf_Debug dw_dbg,
     Dwarf_Die       dw_die,
@@ -375,12 +380,11 @@ _dwarf_determine_die_range_offset(Dwarf_Debug dw_dbg,
     Dwarf_Unsigned *die_base_addr,
     Dwarf_Error    *dw_error)
 {
-    Dwarf_Bool      hasatranges = FALSE;
-    Dwarf_Bool      haslowpc = FALSE;
-    Dwarf_Attribute attr = 0;
-    Dwarf_Unsigned  rangeoffset_local = 0;
-    int             res = 0;
-    Dwarf_Unsigned  local_lowpc = 0;
+    Dwarf_Bool       hasatranges = FALSE;
+    Dwarf_Attribute  attr = 0;
+    Dwarf_Unsigned   rangeoffset_local = 0;
+    int              res = 0;
+    Dwarf_CU_Context cucon = 0;
 
     res = dwarf_hasattr(dw_die,DW_AT_ranges, &hasatranges,dw_error);
     if (res != DW_DLV_OK) {
@@ -397,43 +401,27 @@ _dwarf_determine_die_range_offset(Dwarf_Debug dw_dbg,
             *dw_error = 0;
         }
         return res;
-    } else {
-        res = dwarf_global_formref(attr,
-            &rangeoffset_local, dw_error);
-        if (res != DW_DLV_OK) {
-            if (res == DW_DLV_ERROR) {
-                dwarf_dealloc_attribute(attr);
-                dwarf_dealloc_error(dw_dbg,*dw_error);
-                *dw_error = 0;
-                return res;
-            }
-        }
-        /*  rangeoffset_local was set . */
     }
+    res = dwarf_global_formref(attr,
+        &rangeoffset_local, dw_error);
+    if (res != DW_DLV_OK) {
+        if (res == DW_DLV_ERROR) {
+            dwarf_dealloc_attribute(attr);
+            dwarf_dealloc_error(dw_dbg,*dw_error);
+            *dw_error = 0;
+            return res;
+        }
+    }
+    cucon = dw_die->di_cu_context;
+    if (cucon->cc_base_address_present) {
+        *die_base_addr = cucon->cc_base_address;
+        *have_die_base_addr = TRUE;
+    }
+    /*  rangeoffset_local was set . */
     dwarf_dealloc_attribute(attr);
     attr = 0;
     *have_die_ranges_offset = TRUE;
     *die_ranges_offset = rangeoffset_local;
-
-    res = dwarf_hasattr(dw_die,DW_AT_low_pc,&haslowpc,dw_error);
-    if (res != DW_DLV_OK) {
-        /*  Never returns DW_DLV_NO_ENTRY */
-        if (res == DW_DLV_ERROR) {
-            dwarf_dealloc_error(dw_dbg,*dw_error);
-            *dw_error = 0;
-        }
-        return DW_DLV_OK;;
-    }
-    res = dwarf_lowpc(dw_die,&local_lowpc,dw_error);
-    if (res != DW_DLV_OK) {
-        if (res == DW_DLV_ERROR) {
-            dwarf_dealloc_error(dw_dbg,*dw_error);
-            *dw_error = 0;
-        }
-        return DW_DLV_OK;
-    }
-    *have_die_base_addr = TRUE;
-    *die_base_addr = local_lowpc;
     return DW_DLV_OK;
 }
 
@@ -457,8 +445,6 @@ dwarf_get_ranges_baseaddress(Dwarf_Debug dw_dbg,
     Dwarf_CU_Context context = 0;
     Dwarf_Unsigned local_ranges_offset = 0;
     Dwarf_Bool     local_ranges_offset_present = FALSE;
-    Dwarf_Unsigned local_base_addr= 0;
-    Dwarf_Bool     local_base_addr_present = FALSE;
     Dwarf_Bool     have_die_ranges_offset = FALSE;
     Dwarf_Unsigned die_ranges_offset = 0;
     Dwarf_Bool     have_die_base_addr = FALSE;
@@ -520,22 +506,9 @@ dwarf_get_ranges_baseaddress(Dwarf_Debug dw_dbg,
     if (dw_at_ranges_offset_present) {
         *dw_at_ranges_offset_present = local_ranges_offset_present;
     }
-    if (have_die_base_addr) {
-        local_base_addr_present = have_die_base_addr;
-        local_base_addr = die_base_addr;
-    } else {
-        if (context->cc_low_pc_present ) {
-            local_base_addr_present = TRUE;
-            local_base_addr = context->cc_low_pc;
-        }
-    }
-    if (dw_baseaddress) {
-        /*  Unless cc_low_pc_present is TRUE
-            cc_low_pc is always zero, and it
-            could be zero regardless. */
-
-        *dw_baseaddress = local_base_addr;
-        *dw_known_base = local_base_addr_present;
+    if (context->cc_base_address_present) {
+        *dw_baseaddress = context->cc_base_address;
+        *dw_known_base = context->cc_base_address_present;
     }
     return DW_DLV_OK;
 }

@@ -229,7 +229,7 @@ _dwarf_read_line_table_header(Dwarf_Debug dbg,
         err, section_length,section_end);
     line_ptr_end = line_ptr + total_length;
     line_context->lc_line_ptr_end = line_ptr_end;
-    line_context->lc_length_field_length = 
+    line_context->lc_length_field_length =
         (Dwarf_Half)(local_length_size + local_extension_size);
     line_context->lc_section_offset = starting_line_ptr -
         dbg->de_debug_line.dss_data;
@@ -2704,11 +2704,14 @@ read_line_table_program(Dwarf_Debug dbg,
                 /*  This is an extended op code we do not know about,
                     other than we know now many bytes it is
                     and the op code and the bytes of operand. */
-                Dwarf_Unsigned remaining_bytes = instr_length -1;
+                Dwarf_Unsigned remaining_bytes = 0;
                 /*  ptrdiff_t is generated but not named */
                 Dwarf_Unsigned space_left =
                     (line_ptr <= line_ptr_end)?
                     (line_ptr_end - line_ptr):0xfffffff;
+                if (instr_length > 0) {
+                    remaining_bytes = instr_length -1;
+                }
 
                 /*  By catching this here instead of PRINTING_DETAILS
                     we avoid reading off of our data of interest*/

@@ -1,7 +1,7 @@
 /*
   Copyright (C) 2000-2010 Silicon Graphics, Inc.  All Rights Reserved.
   Portions Copyright 2007-2010 Sun Microsystems, Inc. All rights reserved.
-  Portions Copyright 2008-2023 David Anderson. All rights reserved.
+  Portions Copyright 2008-2024 David Anderson. All rights reserved.
   Portions Copyright 2008-2010 Arxan Technologies, Inc. All rights reserved.
   Portions Copyright 2010-2012 SN Systems Ltd. All rights reserved.
 
@@ -99,10 +99,10 @@ extern "C" {
 */
 
 /* Semantic Version identity for this libdwarf.h */
-#define DW_LIBDWARF_VERSION "0.11.0"
+#define DW_LIBDWARF_VERSION "0.11.1"
 #define DW_LIBDWARF_VERSION_MAJOR 0
 #define DW_LIBDWARF_VERSION_MINOR 11
-#define DW_LIBDWARF_VERSION_MICRO 0
+#define DW_LIBDWARF_VERSION_MICRO 1
 
 #define DW_PATHSOURCE_unspecified 0
 #define DW_PATHSOURCE_basic     1
@@ -338,8 +338,8 @@ typedef struct Dwarf_Block_s {
     Provides access to Dwarf_Locdesc_c, a single
     location description
 */
-typedef struct Dwarf_Locdesc_c_s * Dwarf_Locdesc_c;
 
+typedef struct Dwarf_Locdesc_c_s * Dwarf_Locdesc_c;
 /*! @typedef Dwarf_Loc_Head_c
     provides access to any sort of location description
     for DWARF2,3,4, or 5.
@@ -1477,9 +1477,11 @@ typedef struct Dwarf_Rnglists_Head_s * Dwarf_Rnglists_Head;
 #define DW_DLE_UNIVERSAL_BINARY_ERROR          502
 #define DW_DLE_UNIV_BIN_OFFSET_SIZE_ERROR      503
 #define DW_DLE_PE_SECTION_SIZE_HEURISTIC_FAIL  504
+#define DW_DLE_LLE_ERROR                       505
+#define DW_DLE_RLE_ERROR                       506
 
 /*! @note DW_DLE_LAST MUST EQUAL LAST ERROR NUMBER */
-#define DW_DLE_LAST        504
+#define DW_DLE_LAST        506
 #define DW_DLE_LO_USER     0x10000
 /*! @} */
 
@@ -1822,11 +1824,36 @@ DW_API int dwarf_set_tied_dbg(Dwarf_Debug dw_split_dbg,
 
 /*! @brief Use with split dwarf.
 
-    Given a base Dwarf_Debug this returns
-    the tied Dwarf_Debug.
+    Given a main Dwarf_Debug this returns
+    the tied Dwarf_Debug if there is one
+    or else returns null(0).
+
+    Before v0.11.0 it was not defined what this
+    returned if the tied-Dwarf_Debug
+    was passed in, but it would have returned
+    null(0) in that case.
     Unlikely anyone uses this call as
-    you had the tied and base dbg when calling
+    callers had the tied and base dbg when calling
     dwarf_set_tied_dbg().
+
+    @param dw_dbg
+    Pass in a non-null Dwarf_Debug which is either
+    a main-Dwarf_Debug or a tied-Dwarf_Debug.
+    @param dw_tieddbg_out
+    On success returns the applicable tied-Dwarf_Debug
+    through the pointer.
+    If dw_dbg is a tied-Dwarf_Debug  the function returns
+    null(0) through the poiner.
+    If there is no tied-Dwarf_Debug (meaning there is
+    just a main-Dwarf_Debug) the function returns
+    null (0) through the pointer.
+    @param dw_error
+    If the dw_dbg is invalid or damaged then the function
+    returns DW_DLV_ERROR and
+    dw_error is set to point to the error details.
+    @return DW_DLV_OK or DW_DLV_ERROR.
+    Never returns DW_DLV_NO_ENTRY.
+
 */
 DW_API int dwarf_get_tied_dbg(Dwarf_Debug dw_dbg,
     Dwarf_Debug * dw_tieddbg_out,

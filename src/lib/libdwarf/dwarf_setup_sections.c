@@ -87,7 +87,7 @@ add_debug_section_info(Dwarf_Debug dbg,
         secdata->dss_name = name; /* Actual name from object file. */
         secdata->dss_standard_name = standard_section_name;
         secdata->dss_number = obj_sec_num;
-        secdata->dss_zdebug_requires_decompress = 
+        secdata->dss_zdebug_requires_decompress =
             (Dwarf_Small)havezdebug;
         /* We don't yet know about SHF_COMPRESSED */
         debug_section->ds_duperr = duperr;
@@ -103,6 +103,25 @@ add_debug_section_info(Dwarf_Debug dbg,
         not supported.  */
     *err = DW_DLE_TOO_MANY_DEBUG;
     return DW_DLV_ERROR;
+}
+
+/*  Avoid adding offest to null s2.
+    This function avoids a compiler warning:
+    error: 'strcmp' reading 1 or more bytes
+    from a region of size 0
+    Offset is a fixed small positive number. */
+static int
+both_strings_nonempty(const char *s1, const char *s2, int offset)
+{
+    const char *s3 = 0;
+    if (!s1 || !s2) {
+        return FALSE;
+    }
+    s3 = s2 + offset;
+    if (!s1[0] || !s3[0]) {
+        return FALSE;
+    }
+    return TRUE;
 }
 
 /*  Return DW_DLV_OK etc.
@@ -167,8 +186,9 @@ set_up_section(Dwarf_Debug dbg,
         So we add -Wnostringop-overread to the build as the error is
         a false positive. We had to drop stringop-overread
         references in compiler options, such turned off
-        valuable warnings. */
-    if (postzprefix &&
+        valuable warnings. Oct 2024
+        refined the test to notice empty string */
+    if (both_strings_nonempty(postzprefix,targname,DPREFIXLEN) &&
         !strcmp(postzprefix,targname+DPREFIXLEN)) {
             /*  zprefix version matches the object section
                 name so the section is compressed and is

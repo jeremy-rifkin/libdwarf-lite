@@ -112,7 +112,7 @@ struct Dwarf_Rnglists_Entry_s {
     Dwarf_Unsigned rle_raw1;
     Dwarf_Unsigned rle_raw2;
     /*  Cooked means the raw values from the .debug_rnglists
-        section translated to DIE-specific addresses. */
+        section translated to CU-specific addresses. */
     Dwarf_Unsigned rle_cooked1;
     Dwarf_Unsigned rle_cooked2;
     Dwarf_Rnglists_Entry rle_next;
@@ -148,8 +148,8 @@ struct Dwarf_Rnglists_Head_s {
 
     /*  DW_AT_addr_base, so we can use .debug_addr
         if such is needed. */
-    Dwarf_Bool      rh_cu_addr_base_present;
-    Dwarf_Unsigned  rh_cu_addr_base;
+    Dwarf_Bool      rh_cu_addr_base_offset_present;
+    Dwarf_Unsigned  rh_cu_addr_base_offset;
     Dwarf_Small    * rh_rlepointer;
     Dwarf_Unsigned   rh_rlearea_offset;
     Dwarf_Small    * rh_end_data_area;

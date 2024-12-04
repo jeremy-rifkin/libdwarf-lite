@@ -741,7 +741,7 @@ dwarf_global_formref(Dwarf_Attribute attr,
     return res;
 }
 
-/* If context_level is 0, normal call
+/*  If context_level is 0, normal call
     But if non-zero will avoid creating CU Context. */
 int
 dwarf_global_formref_b(Dwarf_Attribute attr,
@@ -750,13 +750,16 @@ dwarf_global_formref_b(Dwarf_Attribute attr,
     Dwarf_Error * error)
 {
     int res = 0;
+    int context_level = 0;
     res = _dwarf_internal_global_formref_b( attr,
-        0,
+        context_level,
         ret_offset,
         offset_is_info,
         error);
     return res;
 }
+/*  If context_level is 0, normal call
+    But if non-zero will avoid creating CU Context. */
 int
 _dwarf_internal_global_formref_b(Dwarf_Attribute attr,
     int context_level,
@@ -987,7 +990,7 @@ _dwarf_internal_global_formref_b(Dwarf_Attribute attr,
 
         dwarfstring_constructor(&m);
         dwarfstring_append_printf_u(&m,
-            "DW_DLE_BAD_REF_FORM: The form code is 0x%x ",
+            "DW_DLE_BAD_REF_FORM: The form code is 0x%x.. ",
             formcode);
         fcres  = dwarf_get_FORM_name (formcode,&name);
         if (fcres != DW_DLV_OK) {
@@ -1070,6 +1073,7 @@ _dwarf_get_addr_index_itself(int theform,
         to a local .debug_addr or a tied file .debug_addr
         so lets be cautious. */
 #if 0 /* Attempted check for index uncertain, unwise. Ignore. */
+    /* See de_secondary_dbg before using this */
     if (!dbg->de_tied_data.td_tied_object &&
         index > dbg->de_filesize) {
         _dwarf_error_string(dbg,error,DW_DLE_ATTR_FORM_OFFSET_BAD,
@@ -1403,7 +1407,8 @@ _dwarf_allow_formudata(unsigned form)
     case DW_FORM_data2:
     case DW_FORM_data4:
     case DW_FORM_data8:
-    case DW_FORM_udata:
+    case DW_FORM_flag:
+    case DW_FORM_flag_present:
     case DW_FORM_loclistx:
     case DW_FORM_rnglistx:
         return TRUE;
@@ -1440,6 +1445,18 @@ _dwarf_formudata_internal(Dwarf_Debug dbg,
 
     switch (form) {
     case DW_FORM_data1:
+        READ_UNALIGNED_CK(dbg, ret_value, Dwarf_Unsigned,
+            data, sizeof(Dwarf_Small),
+            error,section_end);
+        *return_uval = ret_value;
+        *bytes_read = 1;
+        return DW_DLV_OK;
+    case DW_FORM_flag_present:
+        *return_uval = 1;
+        *bytes_read = 0;
+        return DW_DLV_OK;
+    case DW_FORM_flag:
+        /* equivalent to dwarf_formflag() */
         READ_UNALIGNED_CK(dbg, ret_value, Dwarf_Unsigned,
             data, sizeof(Dwarf_Small),
             error,section_end);
@@ -2082,7 +2099,8 @@ dwarf_formstring(Dwarf_Attribute attr,
         if (res == DW_DLV_ERROR) {
             if (dwarf_errno(alterr) ==
                 DW_DLE_NO_TIED_FILE_AVAILABLE) {
-                dwarf_dealloc(dbg,alterr,DW_DLA_ERROR);
+
+                dwarf_dealloc_error(dbg,alterr);
                 if ( attr->ar_attribute_form ==
                     DW_FORM_GNU_strp_alt) {
                     *return_str =
@@ -2168,17 +2186,17 @@ _dwarf_get_string_from_tied(Dwarf_Debug dbg,
     Dwarf_Error localerror = 0;
 
     /* Attach errors to dbg, not tieddbg. */
-    tieddbg = dbg->de_tied_data.td_tied_object;
-    if (!tieddbg) {
+    if (!DBG_HAS_SECONDARY(dbg)) {
         _dwarf_error(dbg, error, DW_DLE_NO_TIED_FILE_AVAILABLE);
         return  DW_DLV_ERROR;
     }
+    tieddbg = dbg->de_secondary_dbg;
     /* The 'offset' into .debug_str is set. */
     res = _dwarf_load_section(tieddbg, &tieddbg->de_debug_str,
         &localerror);
     if (res == DW_DLV_ERROR) {
         Dwarf_Unsigned lerrno = dwarf_errno(localerror);
-        dwarf_dealloc(tieddbg,localerror,DW_DLA_ERROR);
+        dwarf_dealloc_error(tieddbg,localerror);
         _dwarf_error(dbg,error,lerrno);
         return res;
     }
@@ -2205,7 +2223,7 @@ _dwarf_get_string_from_tied(Dwarf_Debug dbg,
         &localerror);
     if (res == DW_DLV_ERROR) {
         Dwarf_Unsigned lerrno = dwarf_errno(localerror);
-        dwarf_dealloc(tieddbg,localerror,DW_DLA_ERROR);
+        dwarf_dealloc_error(tieddbg,localerror);
         _dwarf_error(dbg,error,lerrno);
         return res;
     }

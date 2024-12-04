@@ -49,7 +49,7 @@
 #include "dwarf_tsearch.h"
 #include "dwarf_tied_decls.h"
 
-#if 0 /*debug dumpsignature */
+#ifdef DEBUG_PRIMARY_DBG /*debug dumpsignature */
 void
 _dwarf_dumpsig(const char *msg, Dwarf_Sig8 *sig,int lineno)
 {
@@ -139,18 +139,7 @@ _dwarf_loop_reading_debug_info_for_cu(
         it seems. Those signatures point from
         'normal' to 'dwo/dwp'  (DWARF4) */
     int is_info = TRUE;
-    Dwarf_CU_Context startingcontext = 0;
     Dwarf_Unsigned next_cu_offset = 0;
-
-    startingcontext = tieddbg->de_info_reading.de_cu_context;
-
-    if (startingcontext) {
-        next_cu_offset =
-            startingcontext->cc_debug_offset +
-            startingcontext->cc_length +
-            startingcontext->cc_length_size +
-            startingcontext->cc_extension_size;
-    }
 
     for (;;) {
         int sres = DW_DLV_OK;
@@ -177,6 +166,9 @@ _dwarf_loop_reading_debug_info_for_cu(
             &typeoffset,
             &next_cu_offset,
             &cu_type, error);
+        if (sres == DW_DLV_ERROR) {
+            return sres;
+        }
         if (sres == DW_DLV_NO_ENTRY) {
             break;
         }
@@ -230,7 +222,10 @@ _dwarf_loop_reading_debug_info_for_cu(
     return DW_DLV_OK;
 }
 
-/* If out of memory just return DW_DLV_NO_ENTRY.
+/*  If out of memory just return DW_DLV_NO_ENTRY.
+    This ensures all the tied CU contexts have been
+    created though the caller has most likely
+    never tried to read CUs in the tied-file.
 */
 int
 _dwarf_search_for_signature(Dwarf_Debug tieddbg,
