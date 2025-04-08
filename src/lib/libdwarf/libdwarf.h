@@ -99,10 +99,10 @@ extern "C" {
 */
 
 /* Semantic Version identity for this libdwarf.h */
-#define DW_LIBDWARF_VERSION "0.11.1"
+#define DW_LIBDWARF_VERSION "0.12.0"
 #define DW_LIBDWARF_VERSION_MAJOR 0
-#define DW_LIBDWARF_VERSION_MINOR 11
-#define DW_LIBDWARF_VERSION_MICRO 1
+#define DW_LIBDWARF_VERSION_MINOR 12
+#define DW_LIBDWARF_VERSION_MICRO 0
 
 #define DW_PATHSOURCE_unspecified 0
 #define DW_PATHSOURCE_basic     1
@@ -601,6 +601,11 @@ typedef struct Dwarf_Error_s*      Dwarf_Error;
     maintains to support libdwarf calls.
 */
 typedef struct Dwarf_Debug_s*      Dwarf_Debug;
+/*! @typedef Dwarf_Section
+    An open Dwarf_Section points to data that libdwarf
+    maintains to record object section data.
+*/
+typedef struct Dwarf_Section_s*    Dwarf_Section;
 
 /*! @typedef Dwarf_Die
     Used to reference a DWARF Debugging Information Entry.
@@ -788,11 +793,46 @@ struct Dwarf_Obj_Access_Section_a_s {
     Dwarf_Unsigned as_entrysize;
 };
 
+/*! @enum Dwarf_Sec_Alloc_Pref
+
+    @since{0.12.0}
+
+    This is part of the allowance of mmap for
+    loading sections of an object file.
+
+    The option of using mmap() only applies to
+    Elf object files in this release.
+
+    @see dwarf_set_load_preference()
+*/
+enum Dwarf_Sec_Alloc_Pref {
+    /* No dynamic allocation */
+    Dwarf_Alloc_None=0,
+    /* alternative allocations */
+    Dwarf_Alloc_Malloc=1,
+    Dwarf_Alloc_Mmap=2};
+
 /*! @struct Dwarf_Obj_Access_Methods_a_s:
+
     The functions we need to access object data
     from libdwarf are declared here.
 
+    Unless you are reading object sections with
+    your own code
+    (as in src/bin/dwarfexample/jitreader.c)
+    you will not need to fill in or use the struct.
+
+    om_relocate_a_section uses malloc/read to
+    get section contents and returns a pointer to
+    the malloc space through dw_return_data, which
+    is recorded in the applicable section data.
+
+    om_load_section_a uses either malloc/read
+    or mmap and consequently returns more data
+    as needed for eventual free() or munmap().
+
 */
+
 struct Dwarf_Obj_Access_Methods_a_s {
     int    (*om_get_section_info)(void* obj,
         Dwarf_Unsigned              section_index,
@@ -803,14 +843,31 @@ struct Dwarf_Obj_Access_Methods_a_s {
     Dwarf_Small      (*om_get_pointer_size)(void* obj);
     Dwarf_Unsigned   (*om_get_filesize)(void* obj);
     Dwarf_Unsigned   (*om_get_section_count)(void* obj);
+    /*   Always uses malloc/read */
     int              (*om_load_section)(void* obj,
-        Dwarf_Unsigned    section_index,
-        Dwarf_Small** return_data,
-        int         * error);
+        Dwarf_Unsigned dw_section_index,
+        Dwarf_Small  **dw_return_data,
+        int           *dw_error);
     int              (*om_relocate_a_section)(void* obj,
         Dwarf_Unsigned  section_index,
         Dwarf_Debug dbg,
         int       * error);
+    /*  Added in 0.12.0 to allow mmap in section loading.
+        If you are just using malloc for section loading
+        and referring to this struct in your code
+        you should leave this function pointer NULL (zero). */
+    int              (*om_load_section_a)(void* obj,
+        Dwarf_Unsigned             dw_section_index,
+        /*  dw_alloc_pref is input preference and also
+            output with the actual alloced type */
+        enum Dwarf_Sec_Alloc_Pref *dw_alloc_pref,
+        Dwarf_Small              **dw_return_data_ptr,
+        Dwarf_Unsigned            *dw_return_data_len,
+        Dwarf_Small              **dw_return_mmap_base_ptr,
+        Dwarf_Unsigned            *dw_return_mmap_offset,
+        Dwarf_Unsigned            *dw_return_mmap_len,
+        int                       *dw_error);
+    void             (*om_finish)(void * obj);
 };
 struct Dwarf_Obj_Access_Interface_a_s {
     void*                             ai_object;
@@ -1479,9 +1536,10 @@ typedef struct Dwarf_Rnglists_Head_s * Dwarf_Rnglists_Head;
 #define DW_DLE_PE_SECTION_SIZE_HEURISTIC_FAIL  504
 #define DW_DLE_LLE_ERROR                       505
 #define DW_DLE_RLE_ERROR                       506
+#define DW_DLE_MACHO_SEGMENT_COUNT_HEURISTIC_FAIL 507
 
 /*! @note DW_DLE_LAST MUST EQUAL LAST ERROR NUMBER */
-#define DW_DLE_LAST        506
+#define DW_DLE_LAST        507
 #define DW_DLE_LO_USER     0x10000
 /*! @} */
 
@@ -2850,6 +2908,31 @@ DW_API int dwarf_srclang(Dwarf_Die dw_die,
     Dwarf_Unsigned * dw_returned_lang,
     Dwarf_Error    * dw_error);
 
+/*! @brief Return the value of the DW_AT_language_version attribute.
+    @param dw_lang_name
+    Pass in a DW_LNAME value, for example DW_LNAME_C.
+    @param dw_default_lower_bound.
+    On success returns the language code (normally
+    only found on a CU DIE). For example DW_LANG_C
+    has a default lower bound of zero (0) that will
+    be returned through the pointer.
+    @param dw_version_scheme
+    On success, return the version scheme,
+    For DW_LNAME_C the string returned would by "YYYYMM".
+    If there is no version scheme defined, return a NULL
+    through the pointer.
+    Never dealloc or free() any returned value
+    as it is a static constant string.
+    @return
+    Returns DW_DLV_OK or the dw_lang_name
+    is unknown, returns  DW_DLV_NO_ENTRY.
+    Never returns DW_DLV_ERROR;
+*/
+DW_API int dwarf_language_version_string(
+    Dwarf_Unsigned dw_lang_name,
+    int *          dw_default_lower_bound,
+    const char   **dw_version_string);
+
 /*! @brief Return the value of the DW_AT_ordering attribute.
 
     @param dw_die
@@ -3255,12 +3338,14 @@ DW_API int dwarf_formblock(Dwarf_Attribute dw_attr,
     @param dw_attr
     The Dwarf_Attribute of interest.
     @param dw_returned_string
-    Puts a pointer to a string in the DWARF information
-    if the FORM of the attribute is some sort of string FORM.
+    On success puts a pointer to a string existing in
+    an appropriate DWARF section into dw_returned_string.
+    Never free() or dealloc the returned string.
     @param dw_error
     The usual error pointer.
     @return
     DW_DLV_OK if it succeeds.
+
 */
 DW_API int dwarf_formstring(Dwarf_Attribute dw_attr,
     char   **        dw_returned_string,
@@ -4049,14 +4134,21 @@ DW_API int dwarf_lineoff_b(Dwarf_Line dw_line,
     The Dwarf_Line of interest.
     @param dw_returned_name
     On success it reads the file register and finds
-    the source file name from the line table header
-    and returns a pointer to that file name string
+    constructs a file name from a directory and
+    filename there and
+    and returns a pointer to that string
     through the pointer.
+    It is necessary to deallocthe returned string
+    with
+    `dwarf_dealloc(dbg, lsrc_filename, DW_DLA_STRING);`
+    ( Older versions of this function incorrectly
+    said not to free() or dwarf_dealloc(). )
     @param dw_error
     The usual error pointer.
-    Do not dealloc or free the string.
     @return
     DW_DLV_OK if it succeeds.
+
+    @see exampled
 */
 DW_API int dwarf_linesrc(Dwarf_Line dw_line,
     char      ** dw_returned_name,
@@ -8214,7 +8306,7 @@ DW_API int dwarf_get_xu_hash_entry(Dwarf_Xu_Index_Header dw_xuhdr,
     On success returns DW_SECT_INFO or other section
     id as appears in dw_column_index.
     @param dw_SECT_name
-    On success returns a pointer to the string for
+    On success returns a pointer to the string
     with the section name.
     @param dw_error
     The usual pointer to return error details.
@@ -8229,6 +8321,10 @@ DW_API int dwarf_get_xu_section_names(Dwarf_Xu_Index_Header dw_xuhdr,
 
 /*! @brief Get row data (section data) for a row and column
 
+    The section offset represents a base offset for
+    the section the row data refers to.
+    DWARF6 Section 7.3.5.3 page 193.
+
     @param dw_xuhdr
     Pass in an open header pointer.
     @param dw_row_index
@@ -8242,7 +8338,10 @@ DW_API int dwarf_get_xu_section_names(Dwarf_Xu_Index_Header dw_xuhdr,
     @param dw_sec_size
     On success returns the section size of
     the section whose name dwarf_get_xu_section_names
-    returns.
+    returns. If the returned section size is zero
+    then this column makes no contribution to the dwp
+    object file and the dw_sec_size and dw_sec_offset
+    shoul be ignored.
     @param dw_error
     The usual pointer to return error details.
     @return
@@ -8778,6 +8877,10 @@ DW_API int dwarf_get_LLE_name(unsigned int dw_val_in,
 DW_API int dwarf_get_LLEX_name(unsigned int dw_val_in,
     const char ** dw_s_out );
 
+/*! @brief dwarf_get_LNAME
+*/
+DW_API int dwarf_get_LNAME_name(unsigned int dw_val_in,
+    const char ** dw_s_out);
 /*! @brief dwarf_get_LNCT_name
 */
 DW_API int dwarf_get_LNCT_name(unsigned int dw_val_in,
@@ -9207,6 +9310,9 @@ DW_API int dwarf_get_section_info_by_index(Dwarf_Debug dw_dbg,
     have ABI-defined values which have nothing to do
     with DWARF.
 
+    This version added December 2024 with an
+    additional argument: dw_obj_type.
+
     dwarf_ub_offset, dw_ub_count, dw_ub_index only
     apply to DW_FTYPE_APPLEUNIVERSAL.
 
@@ -9235,6 +9341,12 @@ DW_API int dwarf_get_section_info_by_index(Dwarf_Debug dw_dbg,
     pointed to will be set to a value that
     the specific ABI uses for the machine-architecture
     the object file says it is for.
+    @param dw_obj_type
+    Pass in a pointer. On success the value
+    pointed to will be set to a value that
+    the specific ABI uses for the machine-architecture
+    the object file says it is for
+    (for ELF is elf header e_type).
     @param dw_obj_flags
     Pass in a pointer. On success the value
     pointed to will be set to a value that
@@ -9275,6 +9387,26 @@ DW_API int dwarf_get_section_info_by_index(Dwarf_Debug dw_dbg,
     is null or stale. Otherwise returns DW_DLV_OK
     and non-null return-value pointers will have
     meaningful data.
+
+*/
+DW_API int dwarf_machine_architecture_a(Dwarf_Debug dw_dbg,
+    Dwarf_Small    *dw_ftype,
+    Dwarf_Small    *dw_obj_pointersize,
+    Dwarf_Bool     *dw_obj_is_big_endian,
+    Dwarf_Unsigned *dw_obj_machine, /*Elf e_machine */
+    Dwarf_Unsigned *dw_obj_type, /* Elf e_type */
+    Dwarf_Unsigned *dw_obj_flags,
+    Dwarf_Small    *dw_path_source,
+    Dwarf_Unsigned *dw_ub_offset,
+    Dwarf_Unsigned *dw_ub_count,
+    Dwarf_Unsigned *dw_ub_index,
+    Dwarf_Unsigned *dw_comdat_groupnumber);
+
+/*! @brief Get basic object information original version
+
+    Identical to dwarf_machine_architecture_a()  except that
+    this older version does not have the the dw_obj_type
+    argument so it cannot return the Elf e_type value..
 
 */
 DW_API int dwarf_machine_architecture(Dwarf_Debug dw_dbg,
@@ -9594,6 +9726,36 @@ DW_API void dwarf_record_cmdline_options(
 */
 DW_API int dwarf_set_de_alloc_flag(int dw_v);
 
+/*!  @brief Eliminate libdwarf checking attribute duplication
+
+    Independent of any Dwarf_Debug, this is sets a
+    global flag in libdwarf and is applicable
+    to all whenever the setting is changed.
+    Defaults to zero so by default libdwarf does check
+    every set of abbreviations for duplicate attributes.
+
+    DWARF5 Sec 2.2 Attribute Types
+    Each attribute value is characterized by an attribute
+    name. No more than one attribute with a given name
+    may appear in any debugging information entry.
+    Essentially the same wording is in Sec 2.2 of
+    DWARF2, DWARF3 and DWARF4.
+
+    Do not call this with non-zero dw_v unless you
+    really want the library to avoid this basic
+    DWARF-correctness check.
+
+    @since {0.12.0}
+
+    @param dw_v
+    If non-zero passed in libdwarf will avoid the checks
+    and will not return errors for an abbreviation list with
+    duplicate attributes.
+    @return
+    Returns the previous version of the flag.
+*/
+DW_API int dwarf_library_allow_dup_attr(int dw_v);
+
 /*! @brief Set the address size on a Dwarf_Debug
 
     DWARF information CUs and other
@@ -9698,7 +9860,117 @@ DW_API int dwarf_object_detector_fd(int dw_fd,
     unsigned int   *dw_offsetsize,
     Dwarf_Unsigned *dw_filesize,
     int            *dw_errcode);
+/*! @}
+*/
 
+/*! @defgroup sectionallocpref Section allocation: malloc or mmap 
+    @{
+
+    Functions related to the choice of malloc/read
+    or mmap for object section memory allocation.
+
+    The default allocation preference is malloc().
+
+   
+    The shell environment variable DWARF_WHICH_ALLOC
+    is also involved at runtime but it only applies
+    to reading Elf object files..
+    If the value is 'malloc' then use of read/malloc
+    is preferred.
+    If the value is 'mmap' then use of mmap is
+    preferred (Example: 'export DWARF_WHICH_ALLOC=mmap').
+    Otherwise, the environment value is checked and ignored.
+
+    If present and valid this environment variable
+    takes precedence over
+    dwarf_set_load_preference().
+*/
+
+/*! @brief Set/Retrieve section allocation preference.
+
+    @since {0.12.0}
+
+    By default object file sections are loaded
+    using malloc and read (Dwarf_Alloc_Malloc).
+    This works everywhere and works well on
+    all but gigantic object files.
+
+    The preference of Dwarf_Alloc_Mmap does not guarantee mmap
+    will be used for object section data, but does
+    cause mmap() to be used when possible.
+
+    In 0.12.0 mmap() is only usable on Elf object files.
+
+    dw_load_preference is one of
+    Dwarf_Alloc_Malloc      (1)
+    Dwarf_Alloc_Mmap        (2)
+
+    Must be called before calling a dwarf_init*()
+    to be effective in a  dwarf_init*().
+    The value is remembered for subsequent dwarf_init*()
+    in the library runtime being executed.
+
+    @param dw_load_preference
+    If passed in Dwarf_Alloc_Mmap then future
+    calls to any dwarf_init*() function will use mmap
+    to load object sections if possible.
+    If passed in Dwarf_Alloc_Malloc then future
+    calls to any dwarf_init*() function will use mmap
+    to load sections.
+    Any other value passed in dw_load_preference is
+    ignored.
+    @return
+    Always returns the value before dw_load_preference
+    applied, of this runtime global preference.
+
+*/
+DW_API enum Dwarf_Sec_Alloc_Pref dwarf_set_load_preference(
+    enum Dwarf_Sec_Alloc_Pref dw_load_preference);
+
+/*! @brief Retrieve count of mmap/malloc sections
+
+    @since {0.12.0}
+
+    Note that compressed section contents will
+    be expanded into a malloc/read section
+    in all cases.
+
+    @param dw_dbg
+    A valid open Dwarf_Debug.
+    @param dw_mmap_count
+    On success the number of sections allocated
+    with mmap is returned.
+    If null passed in the argument is ignored.
+    @param dw_mmap_size
+    On success the size total in bytes of sections allocated
+    with mmap is returned.
+    If null passed in the argument is ignored.
+    @param dw_malloc_count
+    On success the number of sections read/allocated
+    with read/malloc is returned.
+    If null passed in the argument is ignored.
+    On success the number of sections allocated
+    with malloc/read is returned.
+    @param dw_malloc_size
+    On success the total size in bytes of sections
+    with malloc/read is returned.
+    If null passed in the argument is ignored.
+    On success the number of sections read/allocated
+    with read/malloc is returned.
+
+    @return
+    On success returns DW_DLV_OK and sets
+    the counts and total size through the respective
+    non-null pointer arguments.
+    If dw_dbg is invalid or NULL the function returns DW_DLV_ERROR.
+    Never returns DW_DLV_NO_ENTRY.
+
+*/
+DW_API int dwarf_get_mmap_count(Dwarf_Debug dw_dbg,
+    Dwarf_Unsigned *dw_mmap_count,
+    Dwarf_Unsigned *dw_mmap_size,
+    Dwarf_Unsigned *dw_malloc_count,
+    Dwarf_Unsigned *dw_malloc_size);
 /*! @}
 */
 

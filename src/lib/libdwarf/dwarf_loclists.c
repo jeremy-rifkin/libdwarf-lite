@@ -42,6 +42,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "dwarf.h"
 #include "libdwarf.h"
+#include "dwarf_local_malloc.h"
 #include "libdwarf_private.h"
 #include "dwarf_base_types.h"
 #include "dwarf_opaque.h"
@@ -965,8 +966,6 @@ _dwarf_which_loclists_context(Dwarf_Debug dbg,
     Dwarf_Unsigned          rcxoff = 0;
     Dwarf_Unsigned          rcxend = 0;
     Dwarf_Unsigned          loclists_base = 0;
-    Dwarf_Bool              loclists_base_present = FALSE;
-    int                     res = 0;
     Dwarf_Bool              found_base = FALSE;
     Dwarf_Unsigned          chosen_offset = 0;
 
@@ -981,12 +980,18 @@ _dwarf_which_loclists_context(Dwarf_Debug dbg,
     }
 
     if (ctx->cc_loclists_base_present) {
-        loclists_base_present = ctx->cc_loclists_base_present;
         loclists_base = ctx->cc_loclists_base;
         found_base = TRUE;
         chosen_offset = loclists_base;
     }
+#if 0  /* Do not do this, ignore fission section */
     if (!found_base) {
+        Dwarf_Bool              loclists_base_present = FALSE;
+        int                     res = 0;
+        /*  This works for CU access, but fails for TU access
+            as for .debug_tu_index there is no whole-type-unit
+            entry in any .debug_tu_index section.
+            DWARF5 Sec 7.3.5 Page 190. */
         res = _dwarf_has_SECT_fission(ctx,
             DW_SECT_LOCLISTS,
             &loclists_base_present,&loclists_base);
@@ -995,6 +1000,7 @@ _dwarf_which_loclists_context(Dwarf_Debug dbg,
             chosen_offset = loclists_base;
         }
     }
+#endif
     if (!found_base) {
         loclists_base = loclist_offset;
         chosen_offset = loclist_offset;

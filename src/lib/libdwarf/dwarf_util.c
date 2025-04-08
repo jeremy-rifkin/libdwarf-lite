@@ -42,6 +42,7 @@
 
 #include "dwarf.h"
 #include "libdwarf.h"
+#include "dwarf_local_malloc.h"
 #include "libdwarf_private.h"
 #include "dwarf_base_types.h"
 #include "dwarf_opaque.h"
@@ -70,11 +71,6 @@ dwarf_package_version(void)
 {
     return PACKAGE_VERSION;
 }
-#ifdef DEBUG_PRIMARY_DBG
-/*  These functions are helpers in printing data while
-    debugging problems.
-    In normal use these are not compiled or used.
-    Created November 2024. */
 
 const char *
 _dwarf_basename(const char *full)
@@ -96,6 +92,11 @@ _dwarf_basename(const char *full)
     }
     return (full+slashat);
 }
+#ifdef DEBUG_PRIMARY_DBG
+/*  These functions are helpers in printing data while
+    debugging problems.
+    In normal use these are not compiled or used.
+    Created November 2024. */
 void
 _dwarf_print_is_primary(const char *msg,
     Dwarf_Debug p,
@@ -1015,7 +1016,7 @@ printf("debugging: initial size %u\n",HT_DEFAULT_TABLE_SIZE);
                 &context->cc_dwp_offsets,
                 DW_SECT_ABBREV,&size);
             /*  ASSERT: size != 0 */
-            end_abbrev_ptr = abbrev_ptr + size;
+            /*  Do nothing with size. */
         }
     }
 
@@ -1094,7 +1095,8 @@ printf("debugging: initial size %u\n",HT_DEFAULT_TABLE_SIZE);
         /*  Cycle thru the abbrev content,
             ignoring the content except
             to find the end of the content. */
-        res = _dwarf_count_abbrev_entries(dbg,abbrev_ptr,
+        res = _dwarf_count_abbrev_entries(dbg,
+            context->cc_abbrev_offset,abbrev_ptr,
             end_abbrev_ptr,&atcount,&impl_const_count,
             &abbrev_ptr2,error);
         if (res != DW_DLV_OK) {

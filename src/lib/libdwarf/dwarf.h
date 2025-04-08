@@ -448,6 +448,15 @@ extern "C" {
 #define DW_AT_deleted                           0x8a /* DWARF5 */
 #define DW_AT_defaulted                         0x8b /* DWARF5 */
 #define DW_AT_loclists_base                     0x8c /* DWARF5 */
+/*  As of 6 January 2025 the DWARF committee promises
+    not to change the name or the assigned number of
+    the following two attributes. So
+    compilers are free to use these now with DWARF 5
+    or earlier. The applicable FORMs of are
+    of form class constant (See DWARF5 Section 7.5.5 Classes
+    and Forms). */
+#define DW_AT_language_name                     0x90 /* DWARF6 */
+#define DW_AT_language_version                  0x91 /* DWARF6 */
 
 /* GreenHills, ghs.com GHS C */
 #define DW_AT_ghs_namespace_alias   0x806
@@ -1156,10 +1165,6 @@ most-likely-useful name. */
 #define DW_LANG_UPC                     0x0012 /* DWARF3f */
 #define DW_LANG_D                       0x0013 /* DWARF3f */
 #define DW_LANG_Python                  0x0014 /* DWARF4 */
-/*  The following 2 are not yet formally approved October 2010, but
-    it seems extremely likely they will be approved as the committee
-    chair agrees these should be ok and no one on the committee
-    has objected. */
 #define DW_LANG_OpenCL                  0x0015 /* DWARF5 */
 #define DW_LANG_Go                      0x0016 /* DWARF5 */
 #define DW_LANG_Modula3                 0x0017 /* DWARF5 */
@@ -1177,6 +1182,11 @@ most-likely-useful name. */
 #define DW_LANG_Fortran08               0x0023 /* DWARF5 */
 #define DW_LANG_RenderScript            0x0024 /* DWARF5 */
 #define DW_LANG_BLISS                   0x0025 /* DWARF5 */
+/*  The committee has, in
+    https://dwarfstd.org/languages-v6.html
+    specified that these language code, may be
+    used by compilers now, and promises these
+    will not change. */
 #define DW_LANG_Kotlin                  0x0026 /* DWARF6 */
 #define DW_LANG_Zig                     0x0027 /* DWARF6 */
 #define DW_LANG_Crystal                 0x0028 /* DWARF6 */
@@ -1199,6 +1209,8 @@ most-likely-useful name. */
 #define DW_LANG_Ruby                    0x0040 /* DWARF6 */
 #define DW_LANG_Move                    0x0041 /* DWARF6 */
 #define DW_LANG_Hylo                    0x0042 /* DWARF6 */
+#define DW_LANG_V                       0x0043 /* DWARF6 */
+#define DW_LANG_Algol68                 0x0044 /* DWARF6 */
 
 #define DW_LANG_lo_user                 0x8000
 #define DW_LANG_Mips_Assembler          0x8001 /* MIPS   */
@@ -1212,6 +1224,59 @@ most-likely-useful name. */
 #define DW_LANG_SUN_Assembler           0x9001 /* SUN */
 
 #define DW_LANG_hi_user                 0xffff
+
+/*  The committee has, in
+    https://dwarfstd.org/languages-v6.html
+    specified that these language code, may be
+    used by compilers now, and promises these
+    will not change. */
+#define DW_LNAME_Ada               0x0001  /* DWARF6 */
+#define DW_LNAME_BLISS             0x0002  /* DWARF6 */
+#define DW_LNAME_C                 0x0003  /* DWARF6 */
+#define DW_LNAME_C_plus_plus       0x0004  /* DWARF6 */
+#define DW_LNAME_Cobol             0x0005  /* DWARF6 */
+#define DW_LNAME_Crystal           0x0006  /* DWARF6 */
+#define DW_LNAME_D                 0x0007  /* DWARF6 */
+#define DW_LNAME_Dylan             0x0008  /* DWARF6 */
+#define DW_LNAME_Fortran           0x0009  /* DWARF6 */
+#define DW_LNAME_Go                0x000a  /* DWARF6 */
+#define DW_LNAME_Haskell           0x000b  /* DWARF6 */
+#define DW_LNAME_Java              0x000c  /* DWARF6 */
+#define DW_LNAME_Julia             0x000d  /* DWARF6 */
+#define DW_LNAME_Kotlin            0x000e  /* DWARF6 */
+#define DW_LNAME_Modula2           0x000f  /* DWARF6 */
+#define DW_LNAME_Modula3           0x0010  /* DWARF6 */
+#define DW_LNAME_ObjC              0x0011  /* DWARF6 */
+#define DW_LNAME_ObjC_plus_plus    0x0012  /* DWARF6 */
+#define DW_LNAME_OCaml             0x0013  /* DWARF6 */
+#define DW_LNAME_OpenCL_C          0x0014  /* DWARF6 */
+#define DW_LNAME_Pascal            0x0015  /* DWARF6 */
+#define DW_LNAME_PLI               0x0016  /* DWARF6 */
+#define DW_LNAME_Python            0x0017  /* DWARF6 */
+#define DW_LNAME_RenderScript      0x0018  /* DWARF6 */
+#define DW_LNAME_Rust              0x0019  /* DWARF6 */
+#define DW_LNAME_Swift             0x001a  /* DWARF6 */
+#define DW_LNAME_UPC               0x001b  /* DWARF6 */
+#define DW_LNAME_Zig               0x001c  /* DWARF6 */
+#define DW_LNAME_Assembly          0x001d  /* DWARF6 */
+#define DW_LNAME_C_sharp           0x001e  /* DWARF6 */
+#define DW_LNAME_Mojo              0x001f  /* DWARF6 */
+#define DW_LNAME_GLSL              0x0020  /* DWARF6 */
+#define DW_LNAME_GLSLES            0x0021  /* DWARF6 */
+#define DW_LNAME_HLSL              0x0022  /* DWARF6 */
+#define DW_LNAME_OpenCL_CPP        0x0023  /* DWARF6 */
+#define DW_LNAME_CPP_for_OpenCL    0x0024  /* DWARF6 */
+#define DW_LNAME_SYCL              0x0025  /* DWARF6 */
+#define DW_LNAME_Ruby              0x0026  /* DWARF6 */
+#define DW_LNAME_Move              0x0027  /* DWARF6 */
+#define DW_LNAME_Hylo              0x0028  /* DWARF6 */
+#define DW_LNAME_HIP               0x0029  /* DWARF6 */
+#define DW_LNAME_Odin              0x002a  /* DWARF6 */
+#define DW_LNAME_P4                0x002b  /* DWARF6 */
+#define DW_LNAME_Metal             0x002c  /* DWARF6 */
+#define DW_LNAME_V                 0x002d  /* DWARF6 */
+#define DW_LNAME_Algol68           0x002e  /* DWARF6 */
+#define DW_LNAME_Nim               0x002f  /* DWARF6 */
 
 /* Identifier case name. */
 #define DW_ID_case_sensitive            0x00

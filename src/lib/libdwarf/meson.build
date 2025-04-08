@@ -35,6 +35,7 @@ libdwarf_src = [
   'dwarf_line.c',
   'dwarf_loc.c',
   'dwarf_locationop_read.c',
+  'dwarf_local_malloc.c',
   'dwarf_loclists.c',
   'dwarf_machoread.c',
   'dwarf_macro.c',
@@ -122,12 +123,14 @@ endif
 
 if (lib_type == 'shared')
   compiler_flags = ['-DLIBDWARF_BUILD']
+  compiler_flags_public = []
 else
   compiler_flags = ['-DLIBDWARF_STATIC']
+  compiler_flags_public = ['-DLIBDWARF_STATIC']
 endif
 
 libdwarf_lib = library('dwarf', libdwarf_src,
-  c_args : [ dev_cflags, libdwarf_args, compiler_flags ],
+  c_args : [ dev_cflags,dev_cppflags_onlylibdwarf, libdwarf_args, compiler_flags ],
   dependencies : [ zlib_deps, libzstd_deps ],
   gnu_symbol_visibility: 'hidden',
   include_directories : config_dir,
@@ -139,6 +142,7 @@ libdwarf_lib = library('dwarf', libdwarf_src,
 libdwarf = declare_dependency(
   include_directories : [ include_directories('.')],
   link_with : libdwarf_lib,
+  compile_args : compiler_flags_public,
   dependencies : [zlib_deps, libzstd_deps]
 )
 

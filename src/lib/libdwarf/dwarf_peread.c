@@ -40,6 +40,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "dwarf.h"
 #include "libdwarf.h"
+#include "dwarf_local_malloc.h"
 #include "libdwarf_private.h"
 #include "dwarf_base_types.h"
 #include "dwarf_safe_strcpy.h"
@@ -393,6 +394,11 @@ pe_load_section (void *obj, Dwarf_Unsigned section_index,
             in the section were not written to disc.
             Malloc enough for the whole section, read in
             the bytes we have. */
+        /*  A heuristic for corrupt data */
+        if (sp->VirtualSize >= 2*pep->pe_filesize) {
+            *error = DW_DLE_PE_SECTION_SIZE_ERROR;
+            return DW_DLV_ERROR;
+        }
         sp->loaded_data = malloc((size_t)sp->VirtualSize);
         if (!sp->loaded_data) {
             *error = DW_DLE_ALLOC_FAIL;
@@ -420,10 +426,11 @@ pe_load_section (void *obj, Dwarf_Unsigned section_index,
     return DW_DLV_NO_ENTRY;
 }
 
-void
-_dwarf_destruct_pe_access(
-    struct Dwarf_Obj_Access_Interface_a_s *aip)
+static void
+_dwarf_destruct_pe_access(void* obj)
 {
+    struct Dwarf_Obj_Access_Interface_a_s * aip =
+        (struct Dwarf_Obj_Access_Interface_a_s * )obj;
     dwarf_pe_object_access_internals_t *pep = 0;
     Dwarf_Unsigned i = 0;
 
@@ -869,7 +876,9 @@ static Dwarf_Obj_Access_Methods_a pe_methods = {
     pe_get_file_size,
     pe_get_section_count,
     pe_load_section,
-    0 /* ignore pe relocations. */
+    0 /* ignore pe relocations. */,
+    0 /* Not allowing use of mmap */,
+    _dwarf_destruct_pe_access
 };
 
 /* On any error this frees internals. */

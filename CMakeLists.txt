@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 
-project(libdwarf VERSION 0.11.1 
+project(libdwarf VERSION 0.12.0 
     DESCRIPTION "Library to access DWARF debugging information" 
     HOMEPAGE_URL "https://github.com/davea42/libdwarf-code.git"
     LANGUAGES C CXX)
@@ -8,6 +8,7 @@ project(libdwarf VERSION 0.11.1
 # libdwarf
 option(BUILD_NON_SHARED "build archive library libdwarf[p].a" TRUE)
 option(BUILD_SHARED "build shared library libdwarf[p].so and use it" FALSE)
+option(BUILD_MMAP "build library allowing mmap" TRUE)
 
 option(ENABLE_DECOMPRESSION
     "Enables support for compressed debug sections if both libz/libzstd are present"
@@ -110,10 +111,6 @@ endmacro()
 # view folders on supported IDEs
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-# tells cmake to look in 64bit first (cmake
-# would probably do this anyway).
-set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS TRUE)
-
 ### begin what was configure.cmake
 # cmake macros
 include(TestBigEndian)
@@ -134,6 +131,9 @@ if (${isBigEndian})
 endif()
 
 check_include_file( "sys/types.h"     HAVE_SYS_TYPES_H)
+if (BUILD_MMAP)
+check_include_file( "sys/mman.h"      HAVE_SYS_MMAN_H)
+endif()
 check_include_file( "sys/stat.h"      HAVE_SYS_STAT_H )
 check_include_file( "stdint.h"        HAVE_STDINT_H   )
 check_include_file( "unistd.h"        HAVE_UNISTD_H   )
@@ -158,6 +158,24 @@ if(HAVE_STDINT_H)
       return (int)i;
   }" HAVE_INTPTR_T)
 endif()
+
+if(BUILD_MMAP AND HAVE_SYS_MMAN_H )
+  check_c_source_compiles("
+  #include <unistd.h>
+  #include <string.h>
+  #include <stdlib.h>
+  #include <sys/mman.h>
+  int main()
+  {
+      long pagesize = sysconf(_SC_PAGESIZE);
+      int fd = 4;
+      mmap(0, 100,PROT_READ|PROT_WRITE,MAP_PRIVATE,
+         fd,100);
+      munmap((void *)100,100);
+      return 0;
+  }" HAVE_FULL_MMAP)
+endif()
+
 if (HAVE_UINTPTR_T)
   message(STATUS "HAVE_UINTPTR_T 1: uintptr_t defined in stdint.h... YES")
 else()

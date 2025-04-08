@@ -40,6 +40,7 @@
 
 #include "dwarf.h"
 #include "libdwarf.h"
+#include "dwarf_local_malloc.h"
 #include "libdwarf_private.h"
 #include "dwarf_base_types.h"
 #include "dwarf_opaque.h"
@@ -2204,11 +2205,12 @@ dwarf_get_universalbinary_count(
 
 /*  Never returns DW_DLV_ERROR */
 int
-dwarf_machine_architecture(Dwarf_Debug dbg,
+dwarf_machine_architecture_a(Dwarf_Debug dbg,
     Dwarf_Small    *dw_ftype,
     Dwarf_Small    *dw_obj_pointersize,
     Dwarf_Bool     *dw_obj_is_big_endian,
     Dwarf_Unsigned *dw_obj_machine,
+    Dwarf_Unsigned *dw_obj_type,
     Dwarf_Unsigned *dw_obj_flags,
     Dwarf_Small    *dw_path_source,
     Dwarf_Unsigned *dw_ub_offset,
@@ -2231,6 +2233,9 @@ dwarf_machine_architecture(Dwarf_Debug dbg,
     if (dw_obj_machine) {
         *dw_obj_machine = dbg->de_obj_machine;
     }
+    if (dw_obj_type) {
+        *dw_obj_type = dbg->de_obj_type;
+    }
     if (dw_obj_flags) {
         *dw_obj_flags = dbg->de_obj_flags;
     }
@@ -2248,6 +2253,118 @@ dwarf_machine_architecture(Dwarf_Debug dbg,
     }
     if (dw_comdat_groupnumber) {
         *dw_comdat_groupnumber = dbg->de_groupnumber;
+    }
+    return DW_DLV_OK;
+}
+int
+dwarf_machine_architecture(Dwarf_Debug dbg,
+    Dwarf_Small    *dw_ftype,
+    Dwarf_Small    *dw_obj_pointersize,
+    Dwarf_Bool     *dw_obj_is_big_endian,
+    Dwarf_Unsigned *dw_obj_machine,
+    Dwarf_Unsigned *dw_obj_flags,
+    Dwarf_Small    *dw_path_source,
+    Dwarf_Unsigned *dw_ub_offset,
+    Dwarf_Unsigned *dw_ub_count,
+    Dwarf_Unsigned *dw_ub_index,
+    Dwarf_Unsigned *dw_comdat_groupnumber)
+{
+    return dwarf_machine_architecture_a(dbg,
+        dw_ftype,dw_obj_pointersize,
+        dw_obj_is_big_endian,
+        dw_obj_machine,
+        0 /* Ignoring Elf e_type */ ,
+        dw_obj_flags, dw_path_source,
+        dw_ub_offset, dw_ub_count,
+        dw_ub_index,  dw_comdat_groupnumber);
+}
+
+int dwarf_language_version_string(
+    Dwarf_Unsigned dw_lang_name,
+    int *          dw_default_lower_bound,
+    const char   **dw_version_scheme)
+{
+    const char *lname = 0;
+    int res = 0;
+
+    res = dwarf_get_LNAME_name(dw_lang_name,&lname);
+    if (res == DW_DLV_NO_ENTRY) {
+        return res;
+    }
+    switch(dw_lang_name) {
+    case DW_LNAME_Ada:
+    case DW_LNAME_Cobol:
+    case DW_LNAME_Fortran:
+    case DW_LNAME_Pascal:
+    case DW_LNAME_Algol68:
+        *dw_default_lower_bound = 1;
+        *dw_version_scheme = "YYYY";
+        break;
+    case DW_LNAME_BLISS:
+    case DW_LNAME_Crystal:
+    case DW_LNAME_D :
+    case DW_LNAME_Dylan:
+    case DW_LNAME_Go :
+    case DW_LNAME_Haskell:
+    case DW_LNAME_Java:
+    case DW_LNAME_Kotlin:
+    case DW_LNAME_OCaml:
+    case DW_LNAME_OpenCL_C:
+    case DW_LNAME_Python:
+    case DW_LNAME_RenderScript:
+    case DW_LNAME_Rust:
+    case DW_LNAME_UPC:
+    case DW_LNAME_Zig:
+    case DW_LNAME_Assembly:
+    case DW_LNAME_C_sharp:
+    case DW_LNAME_Mojo:
+    case DW_LNAME_Hylo:
+    case DW_LNAME_HIP:
+        *dw_default_lower_bound = 0;
+        *dw_version_scheme = 0;
+        break;
+    case DW_LNAME_C:
+    case DW_LNAME_C_plus_plus:
+    case DW_LNAME_ObjC:
+    case DW_LNAME_ObjC_plus_plus:
+    case DW_LNAME_Move:
+    case DW_LNAME_Odin:
+        *dw_default_lower_bound = 0;
+        *dw_version_scheme = "YYYYMM";
+        break;
+    case DW_LNAME_Julia:
+    case DW_LNAME_Modula2:
+    case DW_LNAME_Modula3:
+    case DW_LNAME_PLI:
+        *dw_default_lower_bound = 1;
+        *dw_version_scheme = 0;
+        break;
+    case DW_LNAME_Swift:
+    case DW_LNAME_OpenCL_CPP:
+    case DW_LNAME_CPP_for_OpenCL:
+        *dw_default_lower_bound = 0;
+        *dw_version_scheme = "VVMM";
+        break;
+    case DW_LNAME_GLSL :
+    case DW_LNAME_GLSLES:
+    case DW_LNAME_Ruby:
+    case DW_LNAME_P4:
+    case DW_LNAME_Metal:
+    case DW_LNAME_V:
+    case DW_LNAME_Nim:
+        *dw_default_lower_bound = 0;
+        *dw_version_scheme = "VVMMPP";
+        break;
+    case DW_LNAME_HLSL:
+        *dw_default_lower_bound = 0;
+        *dw_version_scheme = "YYYY";
+        break;
+    case DW_LNAME_SYCL:
+        *dw_default_lower_bound = 0;
+        *dw_version_scheme = "YYYYRR";
+        break;
+    default:
+        return DW_DLV_NO_ENTRY;
     }
     return DW_DLV_OK;
 }

@@ -41,6 +41,7 @@
 
 #include "dwarf.h"
 #include "libdwarf.h"
+#include "dwarf_local_malloc.h"
 #include "libdwarf_private.h"
 #include "dwarf_base_types.h"
 #include "dwarf_safe_strcpy.h"
@@ -796,7 +797,7 @@ dwarf_dnames_header(Dwarf_Debug dbg,
         return DW_DLV_NO_ENTRY;
     }
     start_section = dbg->de_debug_names.dss_data;
-    curptr = start_section += starting_offset;
+    curptr = start_section + starting_offset;
     end_section = start_section + section_size;
     dn =  (Dwarf_Dnames_Head)_dwarf_get_alloc(dbg,
         DW_DLA_DNAMES_HEAD, 1);
@@ -809,10 +810,10 @@ dwarf_dnames_header(Dwarf_Debug dbg,
     dn->dn_magic = DWARF_DNAMES_MAGIC;
     dn->dn_section_data = start_section;
     dn->dn_section_size = section_size;
-    dn->dn_section_end = start_section + section_size;
+    dn->dn_section_end = end_section;
     dn->dn_dbg = dbg;
     dn->dn_section_offset = starting_offset;
-    dn->dn_indextable_data = starting_offset + start_section;;
+    dn->dn_indextable_data = curptr;
     remaining = dn->dn_section_size - starting_offset;
     res = read_a_name_table_header(dn,
         starting_offset,
