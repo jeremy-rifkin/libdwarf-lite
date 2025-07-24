@@ -99,20 +99,20 @@ extern "C" {
 */
 
 /* Semantic Version identity for this libdwarf.h */
-#define DW_LIBDWARF_VERSION "2.0.0"
+#define DW_LIBDWARF_VERSION "2.1.0"
 #define DW_LIBDWARF_VERSION_MAJOR 2
-#define DW_LIBDWARF_VERSION_MINOR 0
+#define DW_LIBDWARF_VERSION_MINOR 1
 #define DW_LIBDWARF_VERSION_MICRO 0
 
 #define DW_PATHSOURCE_unspecified 0
 #define DW_PATHSOURCE_basic     1
-#define DW_PATHSOURCE_dsym      2 /* MacOS dSYM */
+#define DW_PATHSOURCE_dsym      2 /* Macos dSYM */
 #define DW_PATHSOURCE_debuglink 3 /* GNU debuglink */
 
 #ifndef DW_FTYPE_UNKNOWN
 #define DW_FTYPE_UNKNOWN    0
 #define DW_FTYPE_ELF        1  /* Unix/Linux/etc */
-#define DW_FTYPE_MACH_O     2  /* MacOS. */
+#define DW_FTYPE_MACH_O     2  /* Macos. */
 #define DW_FTYPE_PE         3  /* Windows */
 #define DW_FTYPE_ARCHIVE    4  /* unix archive */
 #define DW_FTYPE_APPLEUNIVERSAL    5
@@ -1537,9 +1537,11 @@ typedef struct Dwarf_Rnglists_Head_s * Dwarf_Rnglists_Head;
 #define DW_DLE_LLE_ERROR                       505
 #define DW_DLE_RLE_ERROR                       506
 #define DW_DLE_MACHO_SEGMENT_COUNT_HEURISTIC_FAIL 507
+#define DW_DLE_DUPLICATE_NOTE_GNU_BUILD_ID     508
+#define DW_DLE_SYSCONF_VALUE_UNUSABLE     509
 
 /*! @note DW_DLE_LAST MUST EQUAL LAST ERROR NUMBER */
-#define DW_DLE_LAST        507
+#define DW_DLE_LAST        509
 #define DW_DLE_LO_USER     0x10000
 /*! @} */
 
@@ -1567,9 +1569,9 @@ typedef struct Dwarf_Rnglists_Head_s * Dwarf_Rnglists_Head;
     The returned string will be null-terminated.
     The path actually used is copied to true_path_out.
     If true_path_buffer len is zero or true_path_out_buffer
-    is zero  then the Special MacOS processing will not
+    is zero  then the Special Macos processing will not
     occur, nor will the GNU_debuglink processing occur.
-    In case GNU debuglink data was followed or MacOS
+    In case GNU debuglink data was followed or Macos
     dSYM applies the true_path_out
     will not match path and the initial byte will be
     non-null.
@@ -2893,12 +2895,24 @@ DW_API int dwarf_bitoffset(Dwarf_Die dw_die,
 
 /*! @brief Return the value of the DW_AT_language attribute.
 
+    Returns DWARF5 DW_LANG language name.
+    The DW_LANG value returned lets one access
+    the LANG name as a string with dwarf_get_LANG_name()
+
+    To access DW_LNAME names (in DWARF5 or later)
+    see dwarf_srclanglname().
+    To get the DW_LNAME as a string, call
+    dwarf_get_LNAME_name().
+
+    DWARF5 and earlier
+
     The DIE should be a CU DIE.
     @param dw_die
     The DIE of interest.
     @param dw_returned_lang
     On success returns the language code (normally
     only found on a CU DIE). For example DW_LANG_C
+    (0x0002).
     @param dw_error
     The usual error detail return pointer.
     @return
@@ -2908,28 +2922,97 @@ DW_API int dwarf_srclang(Dwarf_Die dw_die,
     Dwarf_Unsigned * dw_returned_lang,
     Dwarf_Error    * dw_error);
 
+/*! @brief Return the value of the DW_AT_language_name attribute.
+
+    New in v2.1.0 July 2025.
+
+    Returns a DWARF6  DW_AT language_name name.
+    The DW_LNAME value returned lets one access
+    the LNAME name as a string with dwarf_get_LNAME_name()
+    Also see dwarf_language_version_data()
+    for valued based on  DW_LNAME names.
+
+    To access DW_LANG names (in DWARF5 or earlier)
+    see dwarf_srclang().
+
+    @param dw_die
+    The DIE of interest, normally a CU_DIE.
+    @param dw_returned_lname
+    On success returns the language name (code) (normally
+    only found on a CU DIE). For example DW_LNAME_C
+    (0x0003).
+    @param dw_error
+    The usual error detail return pointer.
+    @return
+    Returns DW_DLV_OK etc.
+*/
+DW_API int dwarf_srclanglname(Dwarf_Die dw_die,
+    Dwarf_Unsigned *dw_returned_lname,
+    Dwarf_Error    *dw_error);
+
 /*! @brief Return the value of the DW_AT_language_version attribute.
-    @param dw_lang_name
-    Pass in a DW_LNAME value, for example DW_LNAME_C.
+
+    New in v2.1.0 July 2025.
+
+    Finds the DW_AT_language_version of the DIE
+    if one is present.
+
+    The DIE should be a CU DIE.
+    @param dw_die
+    The DIE of interest.
+    @param dw_returned verstring
+    On success returns the language verion
+    string from a DW_AT_language_version
+    attributes (normally
+    only found on a CU DIE). For example DW_LNAME_C
+    would return a pointer to "YYYYMM"
+    Never free or dealloc the string returned
+    through dw_returned_verstring, it is in static memory.
+    @param dw_error
+    The usual error detail return pointer.
+    @return
+    Returns DW_DLV_OK etc.
+*/
+
+DW_API int dwarf_srclanglname_version(Dwarf_Die dw_die,
+    const char  *dw_returned_verstring,
+    Dwarf_Error *dw_error);
+
+/*! @brief Return values associated with DW_AT_language_name
+
+    Returns the value of a the default-lower-bound
+    and a string defining the interpretation of
+    the DWARF6 version from the DW_AT_language_version attribute.
+    Replaces dwarf_language_version_string().
+
+    @param dw_lname_name
+    Pass in a DW_LNAME value, for example DW_LNAME_C
+    (0x0003).
     @param dw_default_lower_bound.
     On success returns the language code (normally
-    only found on a CU DIE). For example DW_LANG_C
+    only found on a CU DIE). For example DW_LNAME_C
     has a default lower bound of zero (0) that will
     be returned through the pointer.
     @param dw_version_scheme
     On success, return the version scheme,
-    For DW_LNAME_C the string returned would by "YYYYMM".
+    For DW_LNAME_C the string returned through
+    the pointer would by "YYYYMM".
     If there is no version scheme defined, return a NULL
     through the pointer.
-    Never dealloc or free() any returned value
-    as it is a static constant string.
+    Never dealloc or free() the string returned through
+    dw_version_scheme as it is a static constant string.
     @return
     Returns DW_DLV_OK or the dw_lang_name
     is unknown, returns  DW_DLV_NO_ENTRY.
     Never returns DW_DLV_ERROR;
 */
+DW_API int dwarf_language_version_data(
+    Dwarf_Unsigned dw_lname_name,
+    int *          dw_default_lower_bound,
+    const char   **dw_version_string);
+/*  OBSOLETE NAME. Do Not use, use dwarf_language_version_data */
 DW_API int dwarf_language_version_string(
-    Dwarf_Unsigned dw_lang_name,
+    Dwarf_Unsigned dw_lname_name,
     int *          dw_default_lower_bound,
     const char   **dw_version_string);
 
@@ -3616,7 +3699,7 @@ DW_API int dwarf_discr_entry_s(Dwarf_Dsc_Head dw_dsc,
 
     -#  The file number denotes a name in the line table header.
     -#  If the name is not a full path (i.e. not starting
-        with / in posix/linux/MacOS) then prepend the appropriate
+        with / in posix/linux/Macos) then prepend the appropriate
         directory string from the line table header.
     -#  If the name is still not a full path then prepend
         the content of the DW_AT_comp_dir attribute
@@ -4432,7 +4515,7 @@ DW_API void dwarf_dealloc_ranges(Dwarf_Debug dw_dbg,
     Otherwise the value FALSE will be returned through
     dw_known_base.
     @param dw_baseaddress
-    if dw_known_base is retured as TRUE then
+    if dw_known_base is returned as TRUE then
     dw_baseaddress will be set with the correct pc value.
     Otherwise zero will be set through dw_baseaddress.
     @param dw_at_ranges_offset_present
@@ -8411,7 +8494,7 @@ DW_API int dwarf_get_debugfission_for_key(Dwarf_Debug dw_dbg,
 /*! @defgroup gnudebuglink Access GNU .gnu_debuglink, build-id.
 
     @{
-    When DWARF sections are in a differenct object
+    When DWARF sections are in a different object
     than the executable or a normal shared object.
     The special GNU section provides a way to name
     the object file with DWARF.
@@ -8970,8 +9053,8 @@ DW_API int dwarf_get_FORM_CLASS_name(enum Dwarf_Form_Class dw_fc,
 
     For non-Elf the name reported will be as if
     it were Elf sections. For example, not the names
-    MacOS puts in its object sections (which
-    the MacOS reader translates).
+    Macos puts in its object sections (which
+    the Macos reader translates).
 
     These calls returning selected object header
     {machine architecture,flags)
@@ -9828,6 +9911,10 @@ DW_API int dwarf_get_universalbinary_count(
     DW_FTYPE_PE,
     DW_FTYPE_MACH_O, or
     DW_FTYPE_APPLEUNIVERSAL.
+
+    These are not meant to deal with a specific binary
+    inside a Macos Universal Binary (DW_FTYPE_APPLEUNIVERSAL).
+
 */
 DW_API int dwarf_object_detector_path_b(const char * dw_path,
     char           *dw_outpath_buffer,
@@ -9863,7 +9950,7 @@ DW_API int dwarf_object_detector_fd(int dw_fd,
 /*! @}
 */
 
-/*! @defgroup sectionallocpref Section allocation: malloc or mmap 
+/*! @defgroup sectionallocpref Section allocation: malloc or mmap
     @{
 
     Functions related to the choice of malloc/read
@@ -9871,7 +9958,6 @@ DW_API int dwarf_object_detector_fd(int dw_fd,
 
     The default allocation preference is malloc().
 
-   
     The shell environment variable DWARF_WHICH_ALLOC
     is also involved at runtime but it only applies
     to reading Elf object files..

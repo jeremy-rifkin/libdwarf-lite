@@ -1196,6 +1196,7 @@ dwarf_object_finish(Dwarf_Debug dbg)
 
 #if defined(HAVE_ZLIB) && defined(HAVE_ZSTD)
 
+#if 0 /* Dropping heuristic check. Not reliable. */
 static int
 check_uncompr_inflation(Dwarf_Debug dbg,
     Dwarf_Error *error,
@@ -1227,7 +1228,8 @@ check_uncompr_inflation(Dwarf_Debug dbg,
         }
     }
     if (max_inflated_len < srclen) {
-        /* The calculation overflowed. */
+        /*  The calculation overflowed or compression
+            inflated the data. */
         dwarfstring m;
 
         dwarfstring_constructor_static(&m,buf,sizeof(buf));
@@ -1268,6 +1270,7 @@ check_uncompr_inflation(Dwarf_Debug dbg,
     }
     return DW_DLV_OK;
 }
+#endif /* 0 */
 
 /*  case 1:
     The input stream is assumed to contain
@@ -1291,11 +1294,14 @@ check_uncompr_inflation(Dwarf_Debug dbg,
 
     */
 
+#if 0 /* Dropping heuristic check. Not reliable. */
 /*  ALLOWED_ZLIB_INFLATION is a heuristic, not necessarily right.
     The test case klingler2/compresseddebug.amd64 actually
     inflates about 8 times.  */
 #define ALLOWED_ZLIB_INFLATION 32
 #define ALLOWED_ZSTD_INFLATION 32
+#endif /* 0 */
+
 static int
 do_decompress(Dwarf_Debug dbg,
     struct Dwarf_Section_s *section,
@@ -1383,6 +1389,8 @@ do_decompress(Dwarf_Debug dbg,
             " The compressed section is not properly formatted");
         return DW_DLV_ERROR;
     }
+#if 0 /* Dropping heuristic check. Not reliable. */
+    /*  The heuristics are unreliable. Turned off now  */
     if (!zstdcompress) {
         /*  According to zlib.net zlib essentially never expands
             the data when compressing.  There is no statement
@@ -1395,10 +1403,10 @@ do_decompress(Dwarf_Debug dbg,
             srclen*ALLOWED_ZLIB_INFLATION;
 
         res = check_uncompr_inflation(dbg,
-             error, uncompressed_len, srclen,max_inflated_len, 
-             "zlib");
+            error, uncompressed_len, srclen,max_inflated_len,
+            "zlib");
         if (res != DW_DLV_OK) {
-             return res;
+            return res;
         }
     }
     if (zstdcompress) {
@@ -1412,13 +1420,13 @@ do_decompress(Dwarf_Debug dbg,
         Dwarf_Unsigned max_inflated_len =
             srclen*ALLOWED_ZSTD_INFLATION;
         res = check_uncompr_inflation(dbg,
-             error, uncompressed_len, srclen,max_inflated_len, 
-             "zstd");
+            error, uncompressed_len, srclen,max_inflated_len,
+            "zstd");
         if (res != DW_DLV_OK) {
-             return res;
+            return res;
         }
-
     }
+#endif /* 0 */
     if ((src +srclen) > endsection) {
         _dwarf_error_string(dbg, error,
             DW_DLE_ZLIB_SECTION_SHORT,
@@ -1550,7 +1558,7 @@ _dwarf_load_section(Dwarf_Debug dbg,
     if (res == DW_DLV_ERROR) {
         DWARF_DBG_ERROR(dbg, errc, DW_DLV_ERROR);
     }
-#if 0
+#if 0 /* Not changing error, to disruptive of regression tests. */
 Hold off on this, keep old error for the moment
     if (res == DW_DLV_ERROR) {
         _dwarf_error_string(dbg, error,

@@ -489,6 +489,9 @@ is_mach_o_magic(struct elf_header *h,
     return TRUE;
 }
 
+/*  This is part of the public API. Not usable
+    to detect inner binaries from
+    a MacOS universal binary. */
 int
 dwarf_object_detector_fd(int fd,
     unsigned *ftype,
@@ -522,10 +525,12 @@ _dwarf_object_detector_fd_a(int fd,
     Dwarf_Unsigned remaininglen  = 0;
     int            res = 0;
 
-    res = _dwarf_seekr(fd,0,SEEK_END,&filesize);
-    if (res != DW_DLV_OK) {
-        *errcode = DW_DLE_SEEK_ERROR;
-        return DW_DLV_ERROR;
+    {
+        res = _dwarf_seekr(fd,0,SEEK_END,&filesize);
+        if (res != DW_DLV_OK) {
+            *errcode = DW_DLE_SEEK_ERROR;
+            return DW_DLV_ERROR;
+        }
     }
     if (filesize <= readlen) {
         /* Not a real object file */
@@ -544,16 +549,9 @@ _dwarf_object_detector_fd_a(int fd,
     }
     /*  fileoffsetbase is non zero iff we have
         an Apple Universal Binary. */
-    res = _dwarf_seekr(fd,fileoffsetbase,SEEK_SET,0);
-    if (res != DW_DLV_OK) {
-        *errcode = DW_DLE_SEEK_ERROR;
-        return DW_DLV_ERROR;
-    }
-    res = _dwarf_readr(fd,(char *)&h,readlen,0);
-    if (res != DW_DLV_OK) {
-        *errcode = DW_DLE_READ_ERROR;
-        return DW_DLV_ERROR;
-    }
+    res = _dwarf_object_read_random(fd, (char *)&h,
+        fileoffsetbase,
+        readlen, filesize,errcode);
     if (h.e_ident[0] == 0x7f &&
         h.e_ident[1] == 'E' &&
         h.e_ident[2] == 'L' &&
@@ -642,8 +640,9 @@ dwarf_object_detector_path_dSYM(
             return DW_DLV_NO_ENTRY;
         }
         *pathsource = DW_PATHSOURCE_dsym;
-        res = dwarf_object_detector_fd(fd,
-            ftype,endian,offsetsize,filesize,errcode);
+        res = _dwarf_object_detector_fd_a(fd,
+            ftype,endian,offsetsize,0,
+            filesize,errcode);
         if (res != DW_DLV_OK) {
             _dwarf_closer(fd);
             return res;
@@ -855,6 +854,10 @@ _dwarf_debuglink_finder_internal(
     if (res == DW_DLV_NO_ENTRY) {
         return res;
     }
+    /*  If an exe (with debuglink, possibly) has no DWARF
+        sections we should not give up till we look for
+        debuglink stuff, which as of gitbub issue 297,
+        no longer results in DW_DLV_NO_ENTRY. */
     for (p = 0;  p < gl_pathcount; ++p) {
         const char *lpath = 0;
 
@@ -1002,8 +1005,9 @@ dwarf_object_detector_path_b(
         }
         return DW_DLV_NO_ENTRY;
     }
-    res = dwarf_object_detector_fd(fd,
-        ftype,endian,offsetsize,filesize_out,errcode);
+    res = _dwarf_object_detector_fd_a(fd,
+        ftype,endian,offsetsize,0,
+        filesize_out,errcode);
     if (res != DW_DLV_OK) {
         lpathsource = DW_PATHSOURCE_unspecified;
     }

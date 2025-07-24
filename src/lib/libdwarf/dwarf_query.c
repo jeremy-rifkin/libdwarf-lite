@@ -1738,12 +1738,24 @@ dwarf_bitoffset(Dwarf_Die die,
     and specified in the DWARF standard*/
 int
 dwarf_srclang(Dwarf_Die die,
-    Dwarf_Unsigned *ret_size, Dwarf_Error *error)
+    Dwarf_Unsigned *ret_name, Dwarf_Error *error)
+{
+    Dwarf_Unsigned name = 0;
+    int res = _dwarf_die_attr_unsigned_constant(die, DW_AT_language,
+        &name, error);
+    *ret_name = name;
+    return res;
+}
+
+int
+dwarf_srclanglname(Dwarf_Die die,
+    Dwarf_Unsigned *ret_name, Dwarf_Error *error)
 {
     Dwarf_Unsigned luns = 0;
-    int res = _dwarf_die_attr_unsigned_constant(die, DW_AT_language,
+    int res = _dwarf_die_attr_unsigned_constant(die,
+        DW_AT_language_name,
         &luns, error);
-    *ret_size = luns;
+    *ret_name = luns;
     return res;
 }
 
@@ -1840,7 +1852,7 @@ dw_get_special_offset(Dwarf_Half attrnum,
         return DW_FORM_CLASS_MACROPTR;
     case DW_AT_loclists_base: /* DWARF5 */
         return DW_FORM_CLASS_LOCLISTSPTR;
-    case DW_AT_GNU_addr_base: /* DWARF55-like */
+    case DW_AT_GNU_addr_base: /* DWARF5-like */
     case DW_AT_addr_base:     /* DWARF5 */
         return DW_FORM_CLASS_ADDRPTR;
     case DW_AT_str_offsets_base: /* DWARF5 */
@@ -2278,8 +2290,19 @@ dwarf_machine_architecture(Dwarf_Debug dbg,
         dw_ub_offset, dw_ub_count,
         dw_ub_index,  dw_comdat_groupnumber);
 }
+/*
 
-int dwarf_language_version_string(
+    DWARF6 DW_LNAME values are referenced
+    by using dwarf_language_version_string()
+    (these are permitted in DWARF5, see
+    www.dwarfstd.org  )
+
+    For DWARF5 DW_LANG values, call dwarf_srclang()
+    instead.
+
+*/
+
+int dwarf_language_version_data(
     Dwarf_Unsigned dw_lang_name,
     int *          dw_default_lower_bound,
     const char   **dw_version_scheme)
@@ -2290,9 +2313,9 @@ int dwarf_language_version_string(
     unsigned int unreasonable_name = 65535;
 
     if (dw_lang_name >= unreasonable_name) {
-         /*   Want to deal with improper code calling here,
-              not just trim off upper bits in the cast.  */
-         return DW_DLV_NO_ENTRY;
+        /*  Want to deal with improper code calling here,
+            not just trim off upper bits in the cast.  */
+        return DW_DLV_NO_ENTRY;
     }
     ui = (unsigned int)dw_lang_name;
     res = dwarf_get_LNAME_name(ui,&lname);
@@ -2375,4 +2398,14 @@ int dwarf_language_version_string(
         return DW_DLV_NO_ENTRY;
     }
     return DW_DLV_OK;
+}
+/*  OBSOLETE NAME:  Do not use dwarf_language_version_string(). */
+int dwarf_language_version_string(
+    Dwarf_Unsigned dw_lang_name,
+    int *          dw_default_lower_bound,
+    const char   **dw_version_scheme)
+{
+    return dwarf_language_version_data(dw_lang_name,
+        dw_default_lower_bound,
+        dw_version_scheme);
 }

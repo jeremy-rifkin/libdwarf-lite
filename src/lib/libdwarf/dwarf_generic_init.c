@@ -462,8 +462,10 @@ dwarf_init_b(int fd,
         DW_DLV_ERROR */
     *ret_dbg = 0;
 
-    res = dwarf_object_detector_fd(fd, &ftype,
-        &endian,&offsetsize,&filesize,&errcode);
+    res = _dwarf_object_detector_fd_a(fd,
+        &ftype,
+        &endian,&offsetsize,0,
+        &filesize,&errcode);
     if (res == DW_DLV_NO_ENTRY) {
         return res;
     }
